@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11151c">
+  <title>NeoHuman</title>
+  <link rel="icon" type="image/svg+xml" href="/static/img/neohuman-icon.svg">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/vendor/dockview/dist/styles/dockview.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/webgpu": "/vendor/three/build/three.webgpu.js",
+        "three/tsl": "/vendor/three/build/three.tsl.js",
+        "three/addons/": "/vendor/three/examples/jsm/",
+        "dockview": "/vendor/dockview/dist/package/main.esm.mjs",
+        "dockview-core": "/vendor/dockview-core/dist/package/main.esm.mjs"
+      }
+    }
+  </script>
+</head>
+
+<body>
+
+  <section class="topbar">
+    <div>
+      <div class="eyebrow">Open digital avatars</div>
+      <h1 class="brand"><img class="brand-logo" src="/static/img/neohuman-icon.svg" alt="" aria-hidden="true">NeoHuman</h1>
+    </div>
+    <nav id="menubar" aria-label="Application menu">
+      <div class="menu" data-menu="file">
+        <button class="menu-top" type="button" aria-haspopup="true" aria-expanded="false">File</button>
+        <div class="menu-pop" hidden>
+          <button type="button" data-act="snapshot">Save PNG snapshot</button>
+          <button type="button" data-act="fullscreen">Fullscreen viewport</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="view">
+        <button class="menu-top" type="button" aria-haspopup="true" aria-expanded="false">View</button>
+        <div class="menu-pop" hidden>
+          <div class="menu-label">Panels</div>
+          <div id="menu-panels"></div>
+          <div class="menu-sep"></div>
+          <button type="button" data-act="header">Hide header</button>
+          <button type="button" data-act="layout">Reset layout</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="help">
+        <button class="menu-top" type="button" aria-haspopup="true" aria-expanded="false">Help</button>
+        <div class="menu-pop" hidden>
+          <button type="button" data-act="shortcuts">Keyboard shortcuts</button>
+          <button type="button" data-act="about">About NeoHuman</button>
+        </div>
+      </div>
+    </nav>
+    <div class="topbar-transport" aria-label="Simulation transport">
+      <button id="crowd-sim-play" class="crowd-auto" type="button" aria-pressed="false">Play: Off</button>
+      <button id="crowd-sim-step" type="button" title="Advance simulation by 1 frame (16.6ms)">Step +1</button>
+      <button id="crowd-sim-skip" type="button" title="Skip forward 10 frames (166ms)">Skip +10</button>
+      <label class="crowd-count crowd-property">
+        <span>Speed</span>
+        <select id="crowd-sim-speed">
+          <option value="0.25">0.25x</option>
+          <option value="0.5">0.5x</option>
+          <option value="1.0" selected>1.0x</option>
+          <option value="2.0">2.0x</option>
+        </select>
+      </label>
+      <button id="cmdk-open" type="button" title="Command menu (Ctrl+K)">Commands</button>
+    </div>
+  </section>
+
+  <button id="topbar-show" type="button" hidden>NeoHuman &middot; show header</button>
+
+  <div id="dock-root"></div>
+
+  <main class="workspace">
+    <div class="sidebar">
+      <aside class="world-pane" aria-label="World settings">
+        <div class="tab-strip" id="world-tabs" role="tablist" aria-label="World sections">
+          <button class="tab is-active" data-wtab="world" type="button" role="tab" aria-selected="true">World</button>
+          <button class="tab" data-wtab="camera" type="button" role="tab"
+            aria-selected="false">Camera</button>
+          <button class="tab" data-wtab="performance" type="button" role="tab"
+            aria-selected="false">Performance</button>
+          <button class="tab" data-wtab="crowd" type="button" role="tab" aria-selected="false">Crowd</button>
+          <button class="tab" data-wtab="actors" type="button" role="tab" aria-selected="false">Actors</button>
+        </div>
+        <div class="tab-panel" id="wtab-world" role="tabpanel">
+          <div class="details-body">
+            <p class="tab-intro">Dress the set: a flat backdrop color or a 360&deg; HDRI for background and light.</p>
+            <h4 class="world-subhead">Scene</h4>
+            <label class="field">
+              <span>Background</span>
+              <input id="background-color" type="color" value="#171c25">
+            </label>
+            <div class="field">
+              <span>Environment</span>
+              <div id="hdri-grid" class="hdri-grid" role="listbox" aria-label="Built-in 360 environments">
+                <span class="quiet">Loading environments&hellip;</span>
+              </div>
+            </div>
+            <input id="background-file" type="file" accept=".exr,.hdr,.jpg,.jpeg,.png,.webp" hidden>
+            <label class="field-sm">
+              <span>Env light: <b id="background-env-val">0.60</b></span>
+              <input id="background-env" type="range" min="0" max="2" step="0.05" value="0.6">
+            </label>
+          </div>
+        </div>
+        <div class="tab-panel" id="wtab-camera" role="tabpanel" hidden>
+          <div class="details-body">
+            <p class="tab-intro">Lens and framing: clip planes, field of view, projection, follow-cam and effects like depth of field.</p>
+            <h4 class="world-subhead">Lens</h4>
+            <label class="field-sm">
+              <span>Near plane (m)</span>
+              <input id="camera-near" type="number" value="0.01" min="0.001" max="10" step="0.001"
+                title="Near clipping plane, metres">
+            </label>
+            <label class="field-sm">
+              <span>Far plane (m)</span>
+              <input id="camera-far" type="number" value="100" min="1" max="2000" step="1"
+                title="Far clipping plane, metres">
+            </label>
+            <label class="field-sm">
+              <span>Field of view (°)</span>
+              <input id="camera-fov" type="number" value="32" min="10" max="120" step="1"
+                title="Perspective field of view, degrees">
+            </label>
+            <h4 class="world-subhead">Projection</h4>
+            <div class="segmented" role="group" aria-label="Projection">
+              <button id="camera-proj-persp" type="button" aria-pressed="true">Perspective</button>
+              <button id="camera-proj-ortho" type="button" aria-pressed="false">Orthographic</button>
+            </div>
+            <h4 class="world-subhead">Follow</h4>
+            <label class="check-row" title="Keep the camera glued to the selected actor while it moves">
+              <input id="camera-follow" type="checkbox">
+              <span>Follow selected actor</span>
+            </label>
+            <h4 class="world-subhead">Effects</h4>
+            <p class="quiet" id="camera-fx-note">Post-processing runs on WebGPU only.</p>
+            <label class="check-row" title="Cinematic blur outside the focus range">
+              <input id="fx-dof" type="checkbox">
+              <span>Depth of field</span>
+            </label>
+            <label class="field-sm">
+              <span>Focus distance: <b id="fx-dof-focus-val">3.0 m</b></span>
+              <input id="fx-dof-focus" type="range" min="0.5" max="20" step="0.1" value="3">
+            </label>
+            <label class="field-sm">
+              <span>Focus range: <b id="fx-dof-range-val">1.5 m</b></span>
+              <input id="fx-dof-range" type="range" min="0.1" max="10" step="0.1" value="1.5">
+            </label>
+            <label class="field-sm">
+              <span>Bokeh size: <b id="fx-dof-bokeh-val">1.0</b></span>
+              <input id="fx-dof-bokeh" type="range" min="0" max="4" step="0.1" value="1">
+            </label>
+            <label class="check-row" title="Soft glow on bright areas">
+              <input id="fx-bloom" type="checkbox">
+              <span>Bloom</span>
+            </label>
+            <label class="field-sm">
+              <span>Strength: <b id="fx-bloom-strength-val">0.50</b></span>
+              <input id="fx-bloom-strength" type="range" min="0" max="2" step="0.05" value="0.5">
+            </label>
+            <label class="field-sm">
+              <span>Threshold: <b id="fx-bloom-threshold-val">0.85</b></span>
+              <input id="fx-bloom-threshold" type="range" min="0" max="1.5" step="0.05" value="0.85">
+            </label>
+          </div>
+        </div>
+        <div class="tab-panel" id="wtab-performance" role="tabpanel" hidden>
+          <div class="details-body">
+            <p class="tab-intro">Trade fidelity for frames: culling, correctives and the benchmark runner. Dev territory.</p>
+            <div class="model-setting">
+              <div>
+                <strong>Pose correctives</strong>
+                <small>Learned surface deformation for articulated poses.</small>
+              </div>
+              <button id="correctives-toggle" class="switch-button is-on" type="button" role="switch"
+                aria-checked="true">
+                <span id="correctives-state">On</span>
+                <span class="switch-track" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <h4 class="world-subhead">Agents</h4>
+            <label class="check-row" title="Skip draws for off-screen agents (steering/compute still run)">
+              <input id="frustum-toggle" type="checkbox" checked>
+              <span>Agent frustum culling</span>
+            </label>
+            <div class="model-setting">
+              <div>
+                <strong>Crowd eyes</strong>
+                <small>One instanced eyeball pair per agent (CPU + GPU).</small>
+              </div>
+              <button id="crowd-eyes-toggle" class="switch-button is-on" type="button" role="switch"
+                aria-checked="true">
+                <span id="crowd-eyes-toggle-state">On</span>
+                <span class="switch-track" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="model-setting">
+              <div>
+                <strong>Crowd blink</strong>
+                <small>Real lid blinks for GPU agents (CPU share actor #0's mesh).</small>
+              </div>
+              <button id="crowd-blink-toggle" class="switch-button is-on" type="button" role="switch"
+                aria-checked="true">
+                <span id="crowd-blink-toggle-state">On</span>
+                <span class="switch-track" aria-hidden="true"></span>
+              </button>
+            </div>
+            <details id="bench-details" class="crowd-stats-details">
+              <summary>Benchmark <span id="bench-headline" class="quiet">—</span></summary>
+              <p class="crowd-note">
+                Ramp grows the crowd step by step until fps breaks (capacity);
+                Fixed measures N agents for M seconds. Both restore your agents after.
+              </p>
+              <div class="crowd-row">
+                <label class="crowd-count">
+                  <span>Device</span>
+                  <input id="bench-device" type="text" maxlength="32" value="" placeholder="auto-detected"
+                    spellcheck="false">
+                </label>
+                <label class="crowd-count crowd-property">
+                  <span>Mode</span>
+                  <select id="bench-mode">
+                    <option value="ramp" selected>Ramp to fps floor</option>
+                    <option value="fixed">Fixed load</option>
+                  </select>
+                </label>
+                <label class="crowd-count" hidden>
+                  <span>Agents</span>
+                  <input id="bench-agents" type="number" min="1" max="2000" step="1" value="200">
+                </label>
+                <label class="crowd-count" hidden>
+                  <span>Seconds</span>
+                  <input id="bench-seconds" type="number" min="3" max="60" step="1" value="10">
+                </label>
+                <label class="crowd-count crowd-property">
+                  <span>LOD</span>
+                  <select id="bench-lod">
+                    <option value="auto">Auto</option>
+                    <option value="1" selected>1 (pinned)</option>
+                    <option value="2">2 (pinned)</option>
+                    <option value="3">3 (pinned)</option>
+                    <option value="4">4 (pinned)</option>
+                    <option value="5">5 (pinned)</option>
+                    <option value="6">6 (pinned)</option>
+                  </select>
+                </label>
+                <button id="bench-run" type="button">Run</button>
+              </div>
+              <div class="crowd-row" id="bench-ramp-rows">
+                <label class="crowd-count">
+                  <span>Step</span>
+                  <input id="bench-step" type="number" min="1" max="500" step="1" value="5" title="Agents added per step">
+                </label>
+                <label class="crowd-count">
+                  <span>Interval (s)</span>
+                  <input id="bench-interval" type="number" min="1" max="30" step="0.5" value="2.5" title="Seconds per step">
+                </label>
+                <label class="crowd-count">
+                  <span>Min fps</span>
+                  <input id="bench-minfps" type="number" min="1" max="120" step="1" value="20" title="Stop when a step averages below this">
+                </label>
+              </div>
+              <div id="bench-status" class="crowd-summary">—</div>
+              <table class="crowd-stats-table">
+                <thead>
+                  <tr>
+                    <th>Device</th>
+                    <th>GPU</th>
+                    <th>N</th>
+                    <th>LOD</th>
+                    <th>FPS</th>
+                    <th>p95 fr</th>
+                    <th>tick</th>
+                    <th>calls</th>
+                    <th>tris</th>
+                    <th>date</th>
+                  </tr>
+                </thead>
+                <tbody id="bench-body">
+                  <tr>
+                    <td colspan="10" class="quiet">No runs yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="crowd-row" style="margin-top: 4px;">
+                <button id="bench-export" type="button"
+                  title="Download all runs as JSON (import on another device to compare)">Export JSON</button>
+                <label class="crowd-count" style="flex: 0 0 auto;"
+                  title="Import a JSON file exported on another device">
+                  <span>Import JSON</span>
+                  <input id="bench-import" type="file" accept="application/json,.json">
+                </label>
+                <button id="bench-clear" type="button">Clear history</button>
+              </div>
+            </details>
+          </div>
+        </div>
+        <div class="tab-panel" id="wtab-crowd" role="tabpanel" hidden>
+          <section class="crowd-card" id="crowd-card" aria-label="Crowd simulation">
+            <p class="tab-intro">Spawn autonomous agents and steer the horde: counts, behaviors and group goals.</p>
+            <header class="crowd-header">
+              <div class="crowd-title-group">
+                <div class="crowd-tag"><span class="crowd-pulse"></span>CROWD SIMULATION</div>
+                <h2 class="crowd-title">Crowd</h2>
+              </div>
+            </header>
+
+            <div class="crowd-grid">
+              <div class="crowd-group crowd-group-sim">
+                <div class="crowd-group-heading">
+                  <h3>Autonomous agents</h3>
+                  <span id="crowd-sim-total" class="quiet">0 active</span>
+                </div>
+                <p class="crowd-note">
+                  Independent skeletons with procedural MHR locomotion, Boids steering, and obstacle avoidance.
+                </p>
+
+                <!-- Spawning Controls -->
+                <div class="crowd-row">
+                  <label class="crowd-count">
+                    <span>Count</span>
+                    <input id="crowd-sim-count" type="number" min="1" step="1" value="6">
+                  </label>
+                  <button id="crowd-sim-spawn" type="button">Spawn</button>
+                  <button id="crowd-sim-clear" type="button">Clear</button>
+                  <label class="crowd-count crowd-property">
+                    <span>Group Goal</span>
+                    <select id="crowd-sim-behavior">
+                      <option value="wander" selected>Wander</option>
+                      <option value="flock">Flock</option>
+                      <option value="circle">Audience Circle</option>
+                      <option value="scatter">Scatter / Flee</option>
+                    </select>
+                  </label>
+                </div>
+
+                <!-- Crowd settings: LOD + frame metrics (transport lives in the navbar) -->
+                <div class="crowd-sim-toolbar">
+                  <div class="crowd-row">
+                    <button id="crowd-sim-autolod" class="crowd-auto" type="button" aria-pressed="true"
+                      title="Auto-LOD: agents migrate between per-distance LOD pools. Off parks everyone at the anchor LOD.">LOD:
+                      Auto</button>
+                    <button id="crowd-sim-lodcolors" class="crowd-auto" type="button" aria-pressed="false"
+                      title="Paint actors by LOD pool: L1 red · L2 orange · L3 yellow · L4 green · L5 blue · L6 purple · CPU gray. Actor #0 paints at the server LOD.">LOD
+                      colors: Off</button>
+                  </div>
+                  <div class="crowd-sim-metrics">
+                    <span id="crowd-sim-frame" class="quiet">Frame: 0</span>
+                    <span id="crowd-sim-time" class="quiet">0.00s</span>
+                  </div>
+                </div>
+
+                <div id="crowd-sim-summary" class="crowd-summary">—</div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="tab-panel" id="wtab-actors" role="tabpanel" hidden>
+          <div class="details-body">
+            <p class="tab-intro">Everyone on stage, one list. Click to select &mdash; every Actor tab edits that character.</p>
+            <div id="actors-list" class="actors-list" role="listbox" aria-label="Actors"></div>
+          </div>
+        </div>
+      </aside>
+      <aside class="model-settings" aria-label="Model settings">
+
+        <section class="control-section" id="actor-card" aria-labelledby="actor-heading">
+          <div id="actor-selected">
+          <div class="section-heading">
+            <h2 id="actor-heading">Actor</h2>
+            <span class="quiet">Follows selection</span>
+          </div>
+
+          <!-- Actor focus (selection lives in the Actors tab list) -->
+          <div class="crowd-row">
+            <button id="crowd-sim-focus" type="button" title="Focus camera on selected actor"
+              style="flex: 1;">Focus</button>
+            <label class="field-sm" style="flex: 0 0 76px;"
+              title="Pin this agent to a LOD pool (Auto follows camera distance). GPU agents only.">
+              <span>LOD</span>
+              <select id="crowd-actor-lod">
+                <option value="auto">Auto</option>
+
+                <option value="1">LOD 1</option>
+                <option value="2">LOD 2</option>
+                <option value="3">LOD 3</option>
+                <option value="4">LOD 4</option>
+                <option value="5">LOD 5</option>
+                <option value="6">LOD 6</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="crowd-actor-header">
+            <div>
+              <strong id="crowd-actor-title">Actor #1</strong>
+              <span id="crowd-actor-state-badge" class="perf-badge is-accent">Walking</span>
+            </div>
+            <button id="crowd-actor-remove" class="crowd-actor-remove-btn" type="button" title="Remove this actor">✕
+              Remove</button>
+          </div>
+          </div>
+          <div class="tab-strip" id="actor-tabs" role="tablist" aria-label="Actor sections">
+            <button class="tab is-active" data-atab="identity" type="button" role="tab" aria-selected="true">Identity <span
+                id="identity-count"></span></button>
+            <button class="tab" data-atab="pose" type="button" role="tab" aria-selected="false">Pose <span
+                id="pose-count"></span></button>
+            <button class="tab" data-atab="expression" type="button" role="tab" aria-selected="false">Expression <span
+                id="expression-count"></span></button>
+            <button class="tab" data-atab="eyes" type="button" role="tab" aria-selected="false">Eyes</button>
+            <button class="tab" data-atab="mouth" type="button" role="tab" aria-selected="false">Mouth</button>
+            <button class="tab" data-atab="materials" type="button" role="tab" aria-selected="false">Materials</button>
+            <button class="tab" data-atab="clothing" type="button" role="tab" aria-selected="false">Clothing</button>
+            <button class="tab" data-atab="animation" type="button" role="tab" aria-selected="false">Animation</button>
+            <button class="tab" data-atab="ai" type="button" role="tab" aria-selected="false">AI</button>
+          </div>
+          <div class="tab-panel" id="atab-pose" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">Strike a pose with the sliders, click the skeleton spheres in the 3D view, or grab a finished preset below.</p>
+              <div class="crowd-group crowd-group-poses">
+                <div class="crowd-group-heading">
+                  <h3>Pose presets</h3>
+                  <span id="pose-preset-count" class="quiet">—</span>
+                </div>
+                <p class="crowd-note">MakeHuman poses retargeted onto the selected actor. 
+                  Holds until released (playing a clip releases it too). Right-click a tile for its license.</p>
+                <div class="crowd-row">
+                  <label class="crowd-count" style="flex: 1;">
+                    <span>Filter</span>
+                    <input id="pose-filter" type="text" placeholder="type to filter…" autocomplete="off">
+                  </label>
+                  <button id="pose-release" type="button" title="Release the held preset pose">Release</button>
+                </div>
+                <div id="pose-grid" class="hdri-grid" role="listbox" aria-label="Pose presets">
+                  <span class="quiet">Loading poses&hellip;</span>
+                </div>
+              </div>
+              <div class="param-mount" id="param-mount-pose">
+                <section class="control-section" id="param-component" aria-labelledby="parameter-heading">
+                  <div class="section-heading">
+                    <h2 id="parameter-heading">Parameter</h2>
+                    <span id="filtered-count" class="quiet"></span>
+                  </div>
+                  <p class="quiet parameter-scope-note">Sliders edit the target actor.</p>
+
+                  <label class="field">
+                    <span>Search</span>
+                    <input id="parameter-search" type="search" placeholder="Filter parameters…" autocomplete="off">
+                  </label>
+
+                  <label id="category-field" class="field">
+                    <span>Category</span>
+                    <select id="category-select"></select>
+                  </label>
+
+                  <div class="field">
+                    <span>Selected parameter</span>
+                    <div id="parameter-select" class="parameter-list" role="listbox" aria-label="Selected parameter">
+                    </div>
+                  </div>
+
+                  <div class="parameter-readout">
+                    <div>
+                      <span class="quiet">Value</span>
+                      <input id="value-readout" type="number" aria-label="Parameter value">
+                    </div>
+                    <div>
+                      <span class="quiet">Range</span>
+                      <strong id="range-readout">—</strong>
+                    </div>
+                  </div>
+
+                  <label class="field range-field">
+                    <span>Adjust</span>
+                    <input id="parameter-slider" type="range">
+                  </label>
+
+                  <div id="joints-field" class="field">
+                    <span>Affected joints</span>
+                    <div id="joint-list" class="joint-list">—</div>
+                  </div>
+
+                  <div class="button-row three">
+                    <button id="reset-current" type="button">Reset current</button>
+                    <button id="reset-group" type="button">Reset group</button>
+                    <button id="reset-all" class="danger" type="button">Reset all</button>
+                  </div>
+                </section>
+              </div>
+              <label class="check-row">
+                <input id="skeleton-toggle" type="checkbox">
+                <span>Skeleton</span>
+              </label>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-identity" role="tabpanel">
+            <div class="details-body">
+              <p class="tab-intro">Sculpt a permanent body: 45 live shape sliders, each with its own reset.</p>
+              <div class="ident-head"><button id="identity-avatar-copy" type="button" title="Copy a shareable code of this character">Copy code</button><button id="identity-avatar-import" type="button" title="Apply a shared character code">Import…</button><button id="identity-wipe-smile" type="button" title="Neutral expression, straight head, centered gaze">Wipe that smile off my face</button><button id="identity-reset-all" type="button">Reset all</button></div><div id="identity-grid" class="ident-grid" role="group" aria-label="Identity parameters"></div>
+              <label class="field-sm">
+                <span>Scale: <b id="crowd-actor-scale-val">1.00x</b></span>
+                <input id="crowd-actor-scale" type="range" min="0.8" max="1.25" step="0.02" value="1.0">
+              </label>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-expression" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">72 FACS controls for the face. Tick Visual editing to drag each control&rsquo;s effect arrow directly on the skin.</p>
+              <label class="check-row"
+                title="One line per expression shape: min-to-max travel of its strongest vertex. Hover highlights mirror pairs.">
+                <input id="expr-vectors-toggle" type="checkbox">
+                <span>Visual editing</span>
+              </label>
+              <div class="param-mount" id="param-mount-expression"></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-eyes" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">Point the gaze, pick an iris, and dress the eyes with MakeHuman brows and lashes.</p>
+              <label class="field-sm">
+                <span>Gaze yaw (-R/+L): <b id="gaze-yaw-val">-14 deg</b></span>
+                <input id="gaze-yaw" type="range" min="-25" max="25" step="1" value="-14">
+              </label>
+              <label class="field-sm">
+                <span>Gaze pitch (-down/+up): <b id="gaze-pitch-val">0 deg</b></span>
+                <input id="gaze-pitch" type="range" min="-20" max="20" step="1" value="0">
+              </label>
+              <div class="crowd-row">
+                <button id="eyes-blink" type="button">Blink now</button>
+              </div>
+              <div class="crowd-row" id="actor-gaze-row" hidden>
+                <button id="actor-gaze-wander" type="button" title="Clear manual gaze, resume wander">Resume
+                  wander</button>
+              </div>
+              <div class="model-setting">
+                <div>
+                  <strong>Auto-blink</strong>
+                  <small>Blink every few seconds via the lid blendshapes.</small>
+                </div>
+                <button id="eyes-autoblink" class="switch-button is-on" type="button" role="switch" aria-checked="true">
+                  <span id="eyes-autoblink-state">On</span>
+                  <span class="switch-track" aria-hidden="true"></span>
+                </button>
+              </div>
+              <label class="field-sm">
+                <span>Pupil: <b id="eyes-pupil-val">0.45</b></span>
+                <input id="eyes-pupil" type="range" min="0" max="1" step="0.01" value="0.45">
+              </label>
+              <div class="swatches" id="iris-swatches" role="group" aria-label="Iris presets"></div>
+              <label class="field-sm">
+                <span>Iris inner</span>
+                <input id="eyes-iris-in" type="color" value="#9fc7ea">
+              </label>
+              <label class="field-sm">
+                <span>Iris outer</span>
+                <input id="eyes-iris-out" type="color" value="#1f5499">
+              </label>
+              <div class="crowd-row"><strong>Eyebrows</strong></div>
+              <label class="check-row">
+                <input id="deco-brow-on" type="checkbox" checked>
+                <span>Eyebrows (MakeHuman)</span>
+              </label>
+              <label class="field-sm">
+                <span>Brow tint</span>
+                <input id="deco-brow-tint" type="color" value="#201a16">
+              </label>
+              <div id="deco-brow-grid" class="hdri-grid" role="listbox" aria-label="Eyebrow styles">
+                <span class="quiet">Loading brows&hellip;</span>
+              </div>
+              <div class="crowd-row"><strong>Eyelashes</strong></div>
+              <label class="check-row">
+                <input id="deco-lash-on" type="checkbox" checked>
+                <span>Eyelashes (MakeHuman)</span>
+              </label>
+              <label class="field-sm">
+                <span>Lash tint</span>
+                <input id="deco-lash-tint" type="color" value="#201a16">
+              </label>
+              <div id="deco-lash-grid" class="hdri-grid" role="listbox" aria-label="Eyelash styles">
+                <span class="quiet">Loading lashes&hellip;</span>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-mouth" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">Jaw, fitted MakeHuman teeth and a posable tongue. Slide the mouth open, say aaah.</p>
+              <p class="quiet" id="actor-face-note" hidden>CPU agents share actor #0's mesh: gaze only, no blink or mouth.
+              </p>
+              <label class="field-sm">
+                <span>Mouth open: <b id="mouth-open-val">0.00</b></span>
+                <input id="mouth-open" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+              <label class="check-row">
+                <input id="fitted-teeth" type="checkbox" checked>
+                <span>Fitted teeth (MakeHuman)</span>
+              </label>
+              <label class="field-sm">
+                <span>Teeth size: <b id="teeth-size-val">1.20x</b></span>
+                <input id="teeth-size" type="range" min="1" max="1.4" step="0.01" value="1.2">
+              </label>
+              <label class="field-sm">
+                <span>Teeth count</span>
+                <input id="teeth-count" type="number" value="14">
+              </label>
+              <label class="field-sm">
+                <span>Crooked: <b id="teeth-crooked-val">0.00</b></span>
+                <input id="teeth-crooked" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+              <label class="field-sm">
+                <span>Gap: <b id="teeth-gap-val">0.00</b></span>
+                <input id="teeth-gap" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+              <label class="field-sm">
+                <span>Overbite: <b id="teeth-overbite-val">0.00</b></span>
+                <input id="teeth-overbite" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+              <label class="field-sm">
+                <span>Fangs: <b id="teeth-fangs-val">0.00</b></span>
+                <input id="teeth-fangs" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+              <label class="field-sm">
+                <span>Tongue out: <b id="tongue-out-val">0.00</b></span>
+                <input id="tongue-out" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+              <label class="field-sm">
+                <span>Tongue curl: <b id="tongue-curl-val">0.00</b></span>
+                <input id="tongue-curl" type="range" min="-1" max="1" step="0.01" value="0">
+              </label>
+              <label class="field-sm">
+                <span>Tongue width: <b id="tongue-width-val">0.00</b></span>
+                <input id="tongue-width" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+              <label class="field-sm">
+                <span>Tongue roll: <b id="tongue-roll-val">0.00</b></span>
+                <input id="tongue-roll" type="range" min="0" max="1" step="0.01" value="0">
+              </label>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-materials" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">Body color and a wireframe x-ray to peek under the hood.</p>
+              <label class="field">
+                <span>Body</span>
+                <input id="body-color" type="color" value="#bf8a5f">
+              </label>
+              <label class="check-row">
+                <input id="wireframe-toggle" type="checkbox">
+                <span>Wireframe</span>
+              </label>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-clothing" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">Throw on a shirt and shorts, pick colors, and refit after big shape changes.</p>
+              <p class="quiet" id="actor-body-note" hidden>Garments are actor-#0-only for now.</p>
+              <div class="model-setting">
+                <div>
+                  <strong>T-shirt</strong>
+                  <small>Procedural shirt from body verts + skin weights. Refit after identity edits.</small>
+                </div>
+                <button id="cloth-toggle" class="switch-button" type="button" role="switch" aria-checked="false">
+                  <span id="cloth-toggle-state">Off</span>
+                  <span class="switch-track" aria-hidden="true"></span>
+                </button>
+              </div>
+              <label class="field-sm">
+                <span>Offset: <b id="cloth-thickness-val">8 mm</b></span>
+                <input id="cloth-thickness" type="range" min="2" max="20" step="1" value="8">
+              </label>
+              <label class="field-sm">
+                <span>Fabric</span>
+                <input id="cloth-color" type="color" value="#2f8f6f">
+              </label>
+              <div class="model-setting">
+                <div>
+                  <strong>Shorts</strong>
+                  <small>Hips + mid-thigh, layered under the shirt.</small>
+                </div>
+                <button id="cloth-shorts-toggle" class="switch-button" type="button" role="switch" aria-checked="false">
+                  <span id="cloth-shorts-toggle-state">Off</span>
+                  <span class="switch-track" aria-hidden="true"></span>
+                </button>
+              </div>
+              <label class="field-sm">
+                <span>Shorts fabric</span>
+                <input id="cloth-shorts-color" type="color" value="#3a4d8f">
+              </label>
+              <div class="crowd-row">
+                <button id="cloth-refit" type="button">Refit to body</button>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-animation" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">Play a Mixamo clip on the selected character, hold a still, or stop back to neutral.</p>
+              <div class="crowd-group crowd-group-mixamo">
+                <div class="crowd-group-heading">
+                  <h3>Motion clips</h3>
+                  <span id="mixamo-count" class="quiet">—</span>
+                </div>
+                <p class="crowd-note">
+                  Mixamo clips from the server folder, retargeted onto this actor (actor #0 included). Playing replaces
+                  gait.
+                </p>
+                <div class="crowd-row">
+                  <label class="crowd-count" style="flex: 1;">
+                    <span>Filter</span>
+                    <input id="mixamo-filter" type="text" placeholder="type to filter…" autocomplete="off">
+                  </label>
+                  <button id="mixamo-refresh" type="button" title="Re-read the server folder">Refresh</button>
+                </div>
+                <div class="crowd-row">
+                  <label class="crowd-count" style="flex: 1;">
+                    <span>Clip</span>
+                    <select id="mixamo-clip">
+                      <option value="">Loading…</option>
+                    </select>
+                  </label>
+                </div>
+                <div id="mixamo-meta" class="crowd-stats-grid" style="margin: 2px 0 6px;">
+                  <span class="quiet">Take</span><b id="mixamo-meta-take">—</b>
+                  <span class="quiet">Duration</span><b id="mixamo-meta-duration">—</b>
+                  <span class="quiet">Tracks</span><b id="mixamo-meta-tracks">—</b>
+                  <span class="quiet">Bones</span><b id="mixamo-meta-bones">—</b>
+                  <span class="quiet">Unmapped</span><b id="mixamo-meta-unmapped">—</b>
+                  <span class="quiet">Hips rest Y</span><b id="mixamo-meta-hips">—</b>
+                  <span class="quiet">Loop</span><b id="mixamo-meta-loop"
+                    title="End-start worst-joint jump. Open clips default to play-once (hold last frame); tick Loop to force looping.">—</b>
+                </div>
+                <div class="crowd-row">
+                  <button id="mixamo-play" type="button" title="Play the clip on the currently selected character">Play
+                    on selected</button>
+                  <button id="mixamo-next" type="button" title="Play the next clip on the currently selected character">Next</button>
+                  <button id="mixamo-stop" type="button" title="Stop the clip on the currently selected character">Stop
+                    selected</button>
+                  <button id="mixamo-stop-all" type="button" title="Stop all playing clips">Stop all</button>
+                  <label class="quiet" style="display: inline-flex; align-items: center; gap: 4px;"
+                    title="Auto-set from loop closure (seamless loops, open plays once); override freely.">
+                    <input type="checkbox" id="mixamo-loop" checked> Loop
+                  </label>
+                  <label class="quiet" style="display: inline-flex; align-items: center; gap: 4px;"
+                    title="Exaggerate the clip's spine motion (1 = faithful, 0 = frozen spine). Applies live to all playing clips.">
+                    Spine <input type="range" id="mixamo-spine" min="0" max="4" step="0.25" value="1"
+                      style="width: 90px;"> <b id="mixamo-spine-val">1x</b>
+                  </label>
+                  <label class="quiet" style="display: inline-flex; align-items: center; gap: 4px;"
+                    title="Solve joint rotations from world motion + our rest frames (fixes hinge bends leaking onto twist axes). Untick for the legacy local-triple path.">
+                    <input type="checkbox" id="mixamo-global" checked> Global
+                  </label>
+                </div>
+                <div id="mixamo-status" class="crowd-summary">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel" id="atab-ai" role="tabpanel" hidden>
+            <div class="details-body">
+              <p class="tab-intro">Steer the selected actor: behavior, speed and cadence &mdash; or give plain orders to the floating Agent console.</p>
+              <div id="actor-ai-note" class="empty-state" hidden>
+                <p><strong>Actor #0 doesn't wander.</strong> It's posed by hand — steering applies to spawned agents.</p>
+                <div class="button-row">
+                  <button type="button" data-ai="agents">Select an agent</button>
+                  <button type="button" data-ai="spawn">Spawn 6 agents</button>
+                </div>
+              </div>
+              <label class="field-sm" style="flex: 1;">
+                <span>Behavior</span>
+                <select id="crowd-actor-behavior">
+                  <option value="wander">Wander</option>
+                  <option value="flock">Flock</option>
+                  <option value="circle">Audience Circle</option>
+                  <option value="scatter">Scatter</option>
+                  <option value="idle">Idle / Freeze</option>
+                </select>
+              </label>
+              <label class="field-sm">
+                <span>Speed: <b id="crowd-actor-speed-val">1.3 m/s</b></span>
+                <input id="crowd-actor-speed" type="range" min="0.2" max="3.0" step="0.1" value="1.3">
+              </label>
+              <label class="field-sm">
+                <span>Cadence: <b id="crowd-actor-cadence-val">3.3</b></span>
+                <input id="crowd-actor-cadence" type="range" min="1.5" max="5.5" step="0.1" value="3.3">
+              </label>
+              <div class="crowd-actor-stats">
+                <span id="crowd-actor-pos" class="quiet">Pos: 0.0, 0.0</span>
+                <span id="crowd-actor-curspeed" class="quiet">Speed: 0.0 m/s</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="viewer-column">
+      <div id="viewport" class="viewport" aria-label="Interactive NeoHuman 3D viewport">
+        <canvas id="viewer-canvas"></canvas>
+        <div class="viewport-toolbar-left">
+          <div class="toolbar-group" role="group" aria-label="Camera views">
+            <button data-view="front" type="button" title="Front view">Front</button>
+            <button data-view="left" type="button" title="Left view">Left</button>
+            <button data-view="right" type="button" title="Right view">Right</button>
+            <button data-view="back" type="button" title="Back view">Back</button>
+            <button data-view="face" type="button" title="Face close-up">Face</button>
+          </div>
+          <div class="toolbar-group" role="group" aria-label="Framing">
+            <button id="camera-reset" type="button" title="Refit the last view">Fit model</button>
+            <button id="projection-toggle" type="button" title="Toggle perspective/orthographic">Orthographic</button>
+          </div>
+        </div>
+        <div class="viewport-brand" aria-hidden="true"><img src="/static/img/neohuman-icon.svg" alt=""><span>NeoHuman</span></div>
+        <div class="viewport-toolbar">
+          <div class="toolbar-group" role="group" aria-label="Capture">
+            <button id="screenshot-button" type="button" title="Save a PNG snapshot">Save PNG</button>
+            <button id="fullscreen-button" type="button" title="Fullscreen viewport">Fullscreen</button>
+          </div>
+          <div class="toolbar-group" role="group" aria-label="Scene">
+            <label class="check-row" title="Ground grid">
+              <input id="grid-toggle" type="checkbox" checked>
+              <span>Grid</span>
+            </label>
+            <label class="check-row" title="World axes">
+              <input id="axes-toggle" type="checkbox">
+              <span>Axes</span>
+            </label>
+            <label class="check-row" title="Reveal crowd simulation, actors and telemetry">
+              <input id="dev-tools" type="checkbox">
+              <span>Dev</span>
+            </label>
+            <label class="check-row" title="Selection ring under the active character">
+              <input id="ring-toggle" type="checkbox" checked>
+              <span>Ring</span>
+            </label>
+          </div>
+        </div>
+        <div id="joint-toolbar" class="joint-toolbar" hidden>
+          <span id="joint-toolbar-name" class="joint-toolbar-name">—</span>
+          <div class="joint-mode-group" role="group" aria-label="Joint transform mode">
+            <button id="joint-mode-move" type="button" title="Move joint (G)">Move</button>
+            <button id="joint-mode-rotate" type="button" title="Rotate joint (R)">Rotate</button>
+            <button id="joint-mode-scale" type="button" title="Scale joint (S)">Scale</button>
+          </div>
+          <button id="joint-deselect" type="button" title="Deselect joint (Esc)" aria-label="Deselect joint">✕</button>
+        </div>
+        <div id="loading-overlay" class="loading-overlay">
+          <div class="spinner" aria-hidden="true"></div>
+          <span id="loading-text">Loading NeoHuman model…</span>
+        </div>
+        <div id="bone-tooltip" class="bone-tooltip" role="tooltip" hidden></div>
+        <div class="viewport-help">Orbit: drag · Pan: right-drag · Zoom: wheel · Pose joints: click a sphere</div>
+      </div>
+
+      <div class="statusbar">
+        <div id="status" class="status" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="status-text">Starting viewer…</span>
+        </div>
+        <div id="active-parameter" class="active-parameter">—</div>
+      <div class="status-stats" aria-label="Model statistics">
+        <div title="Render Framerate"><span id="fps-counter">—</span><small id="fps-unit">FPS</small></div>
+        <div><span id="vertex-count">—</span><small>vertices</small></div>
+        <div><span id="face-count">—</span><small>faces</small></div>
+        <div><span id="joint-count">—</span><small>joints</small></div>
+        <div><span id="render-time">—</span><small>eval latency</small></div>
+      </div>
+      </div>
+
+      <!-- Real-Time Performance & Optimization Card -->
+      <section id="telemetry-pane" aria-label="Telemetry">
+        <div class="telemetry-bar">
+          <span class="quiet">Telemetry</span>
+          <button id="telemetry-collapse" type="button" title="Collapse telemetry">▾</button>
+        </div>
+        <div id="telemetry-body">
+          <section class="perf-card" id="perf-card" aria-label="Performance and Optimization Diagnostics">
+            <header class="perf-header">
+              <div class="perf-title-group">
+                <div class="perf-tag"><span class="perf-pulse"></span>CLIENT-SIDE EVALUATION</div>
+                <h2 class="perf-title">Performance &amp; Optimization Telemetry</h2>
+              </div>
+              <div class="perf-nav-tabs" role="tablist">
+                <button class="perf-tab is-active" data-perf-tab="live" type="button" role="tab">Live Telemetry</button>
+                <button class="perf-tab" data-perf-tab="comparison" type="button" role="tab">V1 vs V2</button>
+                <button class="perf-tab" data-perf-tab="breakdown" type="button" role="tab">Pipeline &amp; CSR</button>
+              </div>
+            </header>
+
+            <!-- Key Metrics Row -->
+            <div class="perf-stats-grid">
+              <div class="perf-stat-item">
+                <div class="perf-stat-label">Client Eval Latency</div>
+                <div class="perf-stat-value-group">
+                  <span id="perf-eval-latency" class="perf-stat-number">&lt; 0.1 ms</span>
+                  <span class="perf-badge is-success">96% faster</span>
+                </div>
+                <div class="perf-stat-sub">vs 120 ms server CPU</div>
+              </div>
+
+              <div class="perf-stat-item">
+                <div class="perf-stat-label">Draw Calls &amp; Meshes</div>
+                <div class="perf-stat-value-group">
+                  <span class="perf-stat-number"><span id="perf-draw-calls">—</span> <small class="unit">calls</small> ·
+                    <span id="perf-mesh-count">—</span> <small class="unit">mesh</small></span>
+                  <span id="perf-triangles-badge" class="perf-badge is-accent">— tris</span>
+                </div>
+                <div id="perf-draw-sub" class="perf-stat-sub">1 SkinnedMesh · 0 crowd</div>
+              </div>
+
+              <div class="perf-stat-item">
+                <div class="perf-stat-label">GPU VRAM Buffers</div>
+                <div class="perf-stat-value-group">
+                  <span id="perf-vram-val" class="perf-stat-number">— MB</span>
+                  <span class="perf-badge is-accent">VRAM</span>
+                </div>
+                <div id="perf-vram-sub" class="perf-stat-sub">Geometries &amp; Compute Buffers</div>
+              </div>
+
+              <div class="perf-stat-item">
+                <div class="perf-stat-label">Host / JS Memory</div>
+                <div class="perf-stat-value-group">
+                  <span id="perf-mem-val" class="perf-stat-number">— MB</span>
+                  <span class="perf-badge is-warning">RAM</span>
+                </div>
+                <div id="perf-mem-sub" class="perf-stat-sub">CSR Weights &amp; Heap</div>
+              </div>
+
+              <div class="perf-stat-item">
+                <div class="perf-stat-label">Render Activity</div>
+                <div class="perf-stat-value-group">
+                  <span id="perf-fps-val" class="perf-stat-number">Idle</span>
+                  <span id="perf-fps-badge" class="perf-badge is-muted">On-Demand</span>
+                </div>
+                <div id="perf-fps-sub" class="perf-stat-sub">0% GPU idle spin</div>
+              </div>
+
+              <div class="perf-stat-item">
+                <div class="perf-stat-label">Bandwidth Saved</div>
+                <div class="perf-stat-value-group">
+                  <span class="perf-stat-number">0 KB / frame</span>
+                  <span class="perf-badge is-success">Zero-lag</span>
+                </div>
+                <div id="perf-saved-bandwidth" class="perf-stat-sub">Saved: 0.0 MB session</div>
+              </div>
+            </div>
+
+            <!-- Tab 1: Live Telemetry Graph & Pipeline Breakdown -->
+            <div class="perf-pane is-active" id="perf-pane-live" role="tabpanel">
+              <div class="perf-chart-container">
+                <div class="perf-chart-header">
+                  <span class="perf-chart-title">Real-Time Frametime &amp; Client Evaluation Waveform</span>
+                  <div class="perf-chart-legend">
+                    <span class="legend-item"><span class="legend-color legend-fps"></span>Frametime (ms)</span>
+                    <span class="legend-item"><span class="legend-color legend-eval"></span>Eval Latency (ms)</span>
+                    <span class="legend-item"><span class="legend-color legend-target"></span>16.6ms Target (60
+                      FPS)</span>
+                  </div>
+                </div>
+                <div class="perf-canvas-wrap">
+                  <canvas id="perf-graph-canvas" height="120"></canvas>
+                </div>
+              </div>
+
+              <div class="perf-pipeline-section">
+                <div class="perf-pipeline-header">
+                  <span>Client Compute Stage Breakdown</span>
+                  <span id="perf-pipeline-total" class="quiet">Active: FK Pose (&lt; 0.1 ms)</span>
+                </div>
+                <div class="perf-pipeline-bar">
+                  <div id="perf-seg-fk" class="pipeline-segment seg-fk" style="width: 8%;" title="Forward Kinematics">
+                  </div>
+                  <div id="perf-seg-blend" class="pipeline-segment seg-blend" style="width: 15%;" title="Blendshapes">
+                  </div>
+                  <div id="perf-seg-corr" class="pipeline-segment seg-corr" style="width: 52%;"
+                    title="CSR Pose Correctives"></div>
+                  <div id="perf-seg-mesh" class="pipeline-segment seg-mesh" style="width: 10%;"
+                    title="Normals, bounds and LOD transfer"></div>
+                  <div id="perf-seg-render" class="pipeline-segment seg-render" style="width: 15%;"
+                    title="Three.js render"></div>
+                </div>
+                <div class="perf-pipeline-legend">
+                  <span><i class="dot seg-fk"></i> FK Kinematics: <b id="perf-val-fk">—</b></span>
+                  <span><i class="dot seg-blend"></i> 117 Blendshapes: <b id="perf-val-blend">—</b></span>
+                  <span><i class="dot seg-corr"></i> Neural Correctives: <b id="perf-val-corr">—</b></span>
+                  <span><i class="dot seg-mesh"></i> Normals + bounds: <b id="perf-val-mesh">—</b></span>
+                  <span><i class="dot seg-render"></i> Render: <b id="perf-val-render">—</b></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: V1 vs V2 Comparison -->
+            <div class="perf-pane" id="perf-pane-comparison" role="tabpanel" hidden>
+              <div class="perf-table-wrap">
+                <table class="perf-comparison-table">
+                  <thead>
+                    <tr>
+                      <th>Architecture Metric</th>
+                      <th>V1 (Legacy Server Evaluation)</th>
+                      <th>V2 (Client-Side Evaluation)</th>
+                      <th>Gain</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Evaluation Engine</strong></td>
+                      <td>Python PyTorch on Server CPU</td>
+                      <td>Client TypedArray (WebGPU renderer)</td>
+                      <td><span class="perf-badge is-success">Native Client</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Scrubbing Latency</strong></td>
+                      <td>45 – 120 ms (HTTP roundtrip)</td>
+                      <td>&lt; 0.1 – 4.5 ms (Local VRAM)</td>
+                      <td><span class="perf-badge is-success">96% faster</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>PCIe / Network Payload</strong></td>
+                      <td>221.3 KB per slider event</td>
+                      <td>0 KB per frame (tiny JSON sync on release, no geometry)</td>
+                      <td><span class="perf-badge is-success">99.8% reduction</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Scrubbing Framerate</strong></td>
+                      <td>8 – 12 FPS (choppy, UI locks)</td>
+                      <td>60 – 120 FPS (continuous, fluid)</td>
+                      <td><span class="perf-badge is-success">10× FPS</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>UI Thread State</strong></td>
+                      <td>Locked (inputs disabled on scrub)</td>
+                      <td>100% Non-blocking, zero wait</td>
+                      <td><span class="perf-badge is-success">Zero UI lock</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Pose Corrective Weights</strong></td>
+                      <td>663.8 MB Dense Float32</td>
+                      <td>26.9 MB CSR (17.6 MB gzip)</td>
+                      <td><span class="perf-badge is-warning">24.5× compressed</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Offline Availability</strong></td>
+                      <td>Fails without active Python server</td>
+                      <td>Page + metadata live; model assets cached</td>
+                      <td><span class="perf-badge is-accent">Assets Cached</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Tab 3: Pipeline & CSR Details -->
+            <div class="perf-pane" id="perf-pane-breakdown" role="tabpanel" hidden>
+              <div class="perf-details-grid">
+                <div class="perf-detail-card">
+                  <h3>Rig Kinematics (T_p &times; &Theta;_p)</h3>
+                  <p>Evaluates 127 bone transforms locally. Multiplies 889&times;204 matrix T_p by 204 active pose
+                    parameters, adding rest offsets and pre-rotations (ZYX euler).</p>
+                  <div class="perf-detail-stats">
+                    <div><span>Parameters</span><strong>204</strong></div>
+                    <div><span>Bones</span><strong>127</strong></div>
+                    <div><span>Eval Time</span><strong>&lt; 0.08 ms</strong></div>
+                  </div>
+                </div>
+
+                <div class="perf-detail-card">
+                  <h3>Identity &amp; Expression Blendshapes</h3>
+                  <p>Linear combination of 117 morph targets across 18,439 canonical vertices, evaluated client-side
+                    over only the non-zero weights.</p>
+                  <div class="perf-detail-stats">
+                    <div><span>Shapes</span><strong>117</strong></div>
+                    <div><span>Vertices</span><strong>18,439</strong></div>
+                    <div><span>Eval Time</span><strong>&lt; 0.74 ms</strong></div>
+                  </div>
+                </div>
+
+                <div class="perf-detail-card">
+                  <h3>CSR Sparse Neural Correctives</h3>
+                  <p>Predicts non-linear surface deformation from joint rotations. Layer 2 (55,317 &times; 3,000) is
+                    97.3% sparse, packed into CSR format for JavaScript TypedArray SpMV execution.</p>
+                  <div class="perf-detail-stats">
+                    <div><span>Sparsity</span><strong>97.3%</strong></div>
+                    <div><span>Non-zeros</span><strong>4,451,976</strong></div>
+                    <div><span>Eval Time</span><strong>~4.10 ms</strong></div>
+                  </div>
+                </div>
+
+                <div class="perf-detail-card">
+                  <h3>Multi-LOD Barycentric Transfer</h3>
+                  <p>Client-side barycentric triangle evaluation maps canonical template deformations instantly across
+                    LOD 1 (canonical) through LOD 6 (lightest) without server re-computation.</p>
+                  <div class="perf-detail-stats">
+                    <div><span>Supported LODs</span><strong>1 to 6</strong></div>
+                    <div><span>Transfer Time</span><strong>&lt; 0.30 ms</strong></div>
+                    <div><span>Interpolation</span><strong>Barycentric</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <details id="crowd-stats-details" class="crowd-stats-details" open>
+            <summary>Crowd Stats <span id="crowd-stats-headline" class="quiet">—</span></summary>
+            <div class="crowd-row" style="margin: 4px 0;">
+              <label class="quiet" style="display: inline-flex; align-items: center; gap: 4px;">
+                <input type="checkbox" id="crowd-stats-autorefresh"> Auto-refresh
+              </label>
+              <button id="crowd-stats-refresh" type="button"
+                title="Update the stats panel once (auto-refresh stays off)">Refresh</button>
+            </div>
+            <div class="crowd-stats-grid">
+              <span class="crowd-stats-subhead">Engine</span>
+              <span class="quiet">Engine</span><b id="crowd-stats-engine">—</b>
+              <span class="quiet">GPU provider</span><b id="crowd-stats-provider">—</b>
+              <span class="quiet">LOD pools</span><b id="crowd-stats-pools"
+                title="Per-LOD GPU pool: used/slots · verts. Pools warm lazily; migration waits for the target.">—</b>
+              <span class="crowd-stats-subhead">Frame cost</span>
+              <span class="quiet">Last tick</span><b id="crowd-stats-tick"
+                title="CPU cost only. agents = steering+gait. post = probe+upload+dispatch queueing. GPU execution is async.">—</b>
+              <span class="quiet">Dispatches</span><b id="crowd-stats-dispatch">—</b>
+              <span class="quiet">GPU exec</span><b id="crowd-stats-gpuexec"
+                title="True GPU execution time per frame via timestamp queries. Async; n/a without adapter support.">--</b>
+              <span class="crowd-stats-subhead">LOD system</span>
+              <span class="quiet">LOD mix</span><b id="crowd-stats-lodmix"
+                title="Live agents per LOD pool (GPU) + CPU overflow. The selected agent and pinned agents hold their pool.">—</b>
+              <span class="quiet">LOD moves</span><b id="crowd-stats-lodmoves"
+                title="Auto-LOD migration, nearest first: queued = waiting for budget, blocked = no free slot in range or retry-waiting; moves last tick, total, failed (each retries in 60 ticks).">—</b>
+              <span class="crowd-stats-subhead">Agents</span>
+              <span class="quiet">Frustum</span><b id="crowd-stats-frustum"
+                title="Manual frustum culling: visible vs culled agents. Culled agents skip raster draws; steering/gait/compute still run.">—</b>
+              <span class="quiet">Spawn</span><b id="crowd-stats-spawn" title="No spawn yet this session.">—</b>
+            </div>
+            <table class="crowd-stats-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Mode</th>
+                  <th>Slot</th>
+                  <th>LOD</th>
+                  <th>Behavior</th>
+                  <th>Speed</th>
+                  <th>Phase</th>
+                  <th>ThetaS</th>
+                  <th>Pos</th>
+                </tr>
+              </thead>
+              <tbody id="crowd-stats-body">
+                <tr>
+                  <td colspan="9" class="quiet">No agents.</td>
+                </tr>
+              </tbody>
+            </table>
+          </details>
+        </div>
+      </section>
+    </section>
+
+  </main>
+
+  <section id="agent-panel" aria-label="Agent console">
+    <div id="agent-head">
+      <span id="agent-status" data-state="idle" title="Agent idle"></span>
+      <b>Agent</b>
+      <button id="agent-collapse" type="button" title="Collapse">–</button>
+    </div>
+    <div id="agent-body">
+      <details id="agent-settings">
+        <summary>Settings</summary>
+        <form id="agent-settings-form">
+          <label>API key
+            <input id="agent-key" type="password" placeholder="Meta API key" autocomplete="off">
+          </label>
+          <label>Model
+            <input id="agent-model" type="text" autocomplete="off">
+          </label>
+          <label>Base URL
+            <input id="agent-url" type="text" autocomplete="off">
+          </label>
+        </form>
+      </details>
+      <details id="agent-actions">
+        <summary>Action log</summary>
+        <div id="agent-actions-log"></div>
+      </details>
+      <div id="agent-log" aria-live="polite"></div>
+      <form id="agent-form">
+        <input id="agent-input" type="text" placeholder="Ask the agent&hellip;" autocomplete="off">
+        <button id="agent-send" type="submit">Send</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="welcome-overlay" hidden>
+    <div id="welcome-box" role="dialog" aria-modal="true" aria-label="Welcome to NeoHuman">
+      <h2>Welcome to NeoHuman</h2>
+      <p>This is your avatar. Reshape it, strike poses, play with expressions, eyes and animation &mdash; everything runs live in your browser.</p>
+      <p class="quiet">For hackathon judges and developers: this build also ships crowd simulation, GPU/CPU telemetry, an action API with a command menu (<kbd>Ctrl</kbd>+<kbd>K</kbd>) and an in-app AI agent in the AI tab. Enable developer tools to reveal the technical tabs.</p>
+      <div class="button-row">
+        <button id="welcome-dev" type="button">Enable developer tools</button>
+        <button id="welcome-play" type="button">Just let me play</button>
+      </div>
+    </div>
+  </div>
+  <div id="cmdk-overlay" hidden>
+    <div id="cmdk-box" role="dialog" aria-modal="true" aria-label="Command menu">
+      <input id="cmdk-input" type="text" placeholder="Type a command&hellip;" autocomplete="off" spellcheck="false">
+      <div id="cmdk-list" role="listbox" aria-label="Commands"></div>
+      <div id="cmdk-hint" class="quiet">&uarr;&darr; navigate &middot; Enter run &middot; Esc close</div>
+    </div>
+  </div>
+
+  <dialog id="dlg-avatar" aria-label="Avatar code">
+    <h2>Avatar code</h2>
+    <p class="quiet">Paste a code and Apply — or copy this one to share your NeoHuman.</p>
+    <textarea id="avatar-code-text" rows="6" spellcheck="false" placeholder="neohuman code…"></textarea>
+    <div id="avatar-code-error" class="avatar-code-error" role="alert"></div>
+    <div class="button-row">
+      <button id="avatar-code-copy" type="button">Copy</button>
+      <button id="avatar-code-apply" type="button">Apply</button>
+      <form method="dialog"><button type="submit">Close</button></form>
+    </div>
+  </dialog>
+  <dialog id="dlg-shortcuts" aria-label="Keyboard shortcuts">
+    <h2>Keyboard shortcuts</h2>
+    <dl class="shortcut-list">
+      <div><dt><kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Command menu</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Close menu / deselect joint</dd></div>
+      <div><dt><kbd>G</kbd> <kbd>R</kbd> <kbd>S</kbd></dt><dd>Joint move / rotate / scale</dd></div>
+      <div><dt>Drag / right-drag / wheel</dt><dd>Orbit / pan / zoom</dd></div>
+    </dl>
+    <form method="dialog"><button type="submit">Close</button></form>
+  </dialog>
+  <dialog id="dlg-about" aria-label="About NeoHuman">
+    <h2>NeoHuman</h2>
+    <p>Open digital avatars: a real-time human-rig viewer and crowd simulator.</p>
+    <p class="quiet">Three.js WebGPU · MHR body model · Mixamo retargeting</p>
+    <form method="dialog"><button type="submit">Close</button></form>
+  </dialog>
+  <script type="module" src="/static/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dynamic AI Agent Flow · ReUI flow-2 Pipeline</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230866FF'/%3E%3Ccircle cx='8' cy='8' r='3' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="reui.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- ReUI Flow-2 Header Bar -->
+  <header class="flow-header">
+    <div class="flow-breadcrumb">
+      <div class="reui-icon-tile" data-variant="soft" data-size="xs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+      </div>
+      <span style="color:var(--text-muted)">Pipelines</span>
+      <span class="sep">/</span>
+      <span class="pipeline-title">
+        avatar-builder-v1
+        <span id="stat-stage-pill" class="reui-badge" data-variant="primary-light" data-size="xs">1/7 Photo</span>
+      </span>
+    </div>
+
+    <!-- Traversal Progress & Candidate Status -->
+    <div class="flow-header-stats">
+      <div class="stat-chip">
+        <span id="stat-candidate-pill" style="color:var(--primary);font-weight:600">Pick Person</span>
+      </div>
+      <span id="stat-pill" class="reui-badge" data-variant="success-light">Meta Muse: Ready</span>
+    </div>
+
+    <!-- Actions & Traversal Stepping -->
+    <div class="flow-header-actions">
+      <button class="reui-btn sm" id="btn-new-flow" title="Start fresh empty flow by dragging a photo">✨ + New Flow</button>
+      <button class="reui-btn sm" id="btn-tidy-layout" title="Auto-align cards into spacious clean layout">🪄 Tidy Layout</button>
+      <button class="reui-btn sm" id="btn-reset-flow" title="Reset flow back to photo input">⏮ Reset</button>
+      <button class="reui-btn sm" id="btn-step-forward" title="Advance to next stage in flow">⏭ Step Forward</button>
+      <button class="reui-btn primary sm" id="btn-auto-traverse" title="Automatically play through the pipeline">▶ Auto Traverse</button>
+      <button class="reui-btn sm" id="btn-flows" title="Save the current flow / reopen a saved one (stored in this browser)">🗂 Flows</button>
+      <button class="reui-btn sm" id="btn-load-input-photo" title="Replace the input photo; the wired graph (cards + edges) stays">🖼 Input Photo</button>
+      <button class="reui-btn sm" id="btn-save-graph" title="Write this graph to flow-viewer/data/saved_flow.json on the server">💾 Save Graph</button>
+      <button class="reui-btn sm" id="btn-load-graph" title="Reload the graph saved on the server">📂 Load Graph</button>
+      <button class="reui-btn sm" id="btn-nodes" title="Toggle the node library sidebar (all cards + wire types)">🧩 Nodes</button>
+      
+      <select id="run-selector" class="reui-select" title="Select pipeline run">
+        <option value="20261103-213035-3359">20261103-213035-3359</option>
+        <option value="smoke-emiru">smoke-emiru</option>
+      </select>
+      
+      <a href="/chat" class="reui-btn sm" style="text-decoration:none">💬 Chat UI</a>
+    </div>
+  </header>
+
+  <!-- Flow-2 Workspace -->
+  <div class="flow-workspace">
+
+    <!-- Node library (left dock): all cards + wire/asset types -->
+    <aside id="nodes-sidebar" class="flow-nodes-sidebar">
+      <div class="flow-nodes-head">
+        <span>Nodes · library</span>
+        <button type="button" class="flow-saves-close" id="btn-close-nodes" title="Hide sidebar">✕</button>
+      </div>
+      <div class="flow-nodes-search-row">
+        <input type="text" class="flow-nodes-search" placeholder="Search nodes & types…" maxlength="60" autocomplete="off">
+      </div>
+      <div class="flow-nodes-scroll">
+        <div class="flow-nodes-section-title">Placeable cards</div>
+        <div class="flow-nodes-list"></div>
+        <div class="flow-nodes-section-title">Wire & asset types</div>
+        <div class="flow-types-list"></div>
+      </div>
+    </aside>
+
+    <!-- Interactive Canvas Viewport (Pan & Zoom) -->
+    <div id="canvas-viewport" class="flow-canvas-viewport">
+      <!-- Fullscreen Drag & Drop Overlay Indicator -->
+      <div id="viewport-drop-overlay" class="flow-drop-overlay">
+        <div class="reui-icon-tile" data-variant="purple" data-size="lg" style="width:56px;height:56px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:28px;height:28px">
+            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+        </div>
+        <div class="flow-drop-overlay-text">Release to start pipeline with this photo</div>
+        <div class="flow-drop-overlay-sub">Will spawn 1. Photo Input & Ingest node on the canvas</div>
+      </div>
+
+      <!-- Hidden file input for photo browse -->
+      <input type="file" id="file-photo-input" accept="image/*" style="display:none">
+
+      <div id="canvas-plane" class="flow-canvas-plane">
+        <!-- SVG Connections Layer -->
+        <svg id="svg-layer" class="flow-svg-layer"></svg>
+        <!-- Nodes rendered dynamically by app.js -->
+      </div>
+
+      <!-- Floating Canvas Navigation Controls -->
+      <div class="flow-floating-controls">
+        <button id="btn-zoom-in" title="Zoom In">+</button>
+        <button id="btn-zoom-out" title="Zoom Out">−</button>
+        <button id="btn-fit-view" title="Fit View">⛶</button>
+        <button id="btn-floating-tidy" title="Auto-align / Tidy Layout">🪄</button>
+      </div>
+    </div>
+
+    <!-- Docked Inspector (Right Drawer) -->
+    <aside id="docked-inspector" class="flow-docked-inspector">
+      <div class="inspector-header">
+        <div class="inspector-title-group">
+          <div>
+            <h2 id="inspector-node-title">Step Inspector</h2>
+            <div id="inspector-node-subtitle" style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted)">
+              Select a node in the flow to inspect
+            </div>
+          </div>
+          <span id="inspector-node-badge" class="reui-badge" data-variant="info-light" data-size="xs">Model</span>
+        </div>
+        <button id="btn-close-inspector" class="reui-btn sm" style="padding:2px 8px">✕</button>
+      </div>
+
+      <!-- Inspector Tabs -->
+      <div class="inspector-tabs">
+        <button class="inspector-tab-btn active" data-tab="overview">Visuals & Artifacts</button>
+        <button class="inspector-tab-btn" data-tab="assets">Assets</button>
+        <button class="inspector-tab-btn" data-tab="hardware">Hardware & Memory</button>
+        <button class="inspector-tab-btn" data-tab="api">API Payloads</button>
+      </div>
+
+      <!-- Dynamic Content Body -->
+      <div id="inspector-dynamic-content" class="inspector-content">
+        <!-- Rendered by app.js -->
+      </div>
+    </aside>
+
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

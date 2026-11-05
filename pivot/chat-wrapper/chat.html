@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chat-wrapper · photo analysis as chat</title>
+<style>
+:root{--bg:#0c0f13;--panel:#151a21;--panel2:#1a2029;--line:#242c36;--text:#e9e6df;--muted:#8b939f;--amber:#e0a33e;--ok:#63c483;--run:#6fa8ff;--err:#e07176;--mono:ui-monospace,Consolas,monospace;--r:14px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line);background:rgba(12,15,19,.9)}
+header h1{font-size:15px;margin:0}header .tag{font:10px var(--mono);color:var(--amber);border:1px solid #8a6524;border-radius:6px;padding:2px 6px}
+#layout{display:grid;grid-template-columns:250px 1fr;max-width:1180px;margin:0 auto;min-height:calc(100vh - 53px)}
+#side{border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px}
+#side h2{font-size:11px;letter-spacing:.12em;color:var(--muted);margin:4px 0;text-transform:uppercase}
+#chats{display:flex;flex-direction:column;gap:6px;overflow:auto}
+.chatrow{text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:8px 10px;cursor:pointer}
+.chatrow.active{border-color:var(--amber)}
+.chatrow .p{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatrow .m{font:10px var(--mono);color:var(--muted)}
+main{padding:20px 18px 120px;min-width:0}
+#msgs{display:flex;flex-direction:column;gap:14px}
+.bub{max-width:100%;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--panel)}
+.bub.user{align-self:flex-end;background:var(--panel2)}
+.bub.assistant{align-self:flex-start}
+.bub img.thumb{max-width:240px;border-radius:8px;display:block;margin-top:8px}
+.tool{border:1px solid var(--line);border-radius:12px;margin-top:10px;background:#0d1116}
+.tool header{position:static;background:none;border:0;padding:10px 12px;display:flex;gap:10px;align-items:center}
+.pill{font:11px var(--mono);padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.pill.running{color:var(--run);border-color:var(--run)}.pill.done{color:var(--ok);border-color:var(--ok)}.pill.failed{color:var(--err);border-color:var(--err)}.pill.cancelled{color:var(--amber);border-color:var(--amber)}
+.stages{padding:0 12px 6px;display:flex;flex-direction:column;gap:8px}
+.stage{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:start;border-top:1px dashed #1e252e;padding-top:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:#555;margin-top:5px}.dot.running{background:var(--run)}.dot.done{background:var(--ok)}.dot.failed{background:var(--err)}
+.stage .imgs{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.stage img{width:200px;border-radius:8px;border:1px solid var(--line)}
+.stage .meta{font:11.5px var(--mono);color:var(--muted);white-space:pre-wrap}
+.gate{margin:8px 12px;border:1px solid var(--amber);border-radius:10px;padding:10px 12px;background:rgba(224,163,62,.05)}
+.gate .q{font-weight:600;margin-bottom:8px}
+.gate .opts{display:flex;gap:8px;flex-wrap:wrap}
+.gate .opts button{font-size:12.5px}
+.gate .opts button:disabled{opacity:.45;cursor:default}
+.gate .opts button.picked{border-color:var(--ok);color:var(--ok)}
+.gate .hint{font:11px var(--mono);color:var(--muted);margin-top:6px}
+details.raw{margin:8px 12px 12px;font:11.5px var(--mono);color:var(--muted)}details.raw pre{white-space:pre-wrap}
+#composer{position:fixed;left:0;right:0;bottom:0;background:rgba(12,15,19,.95);border-top:1px solid var(--line);padding:12px}
+#composer .row{max-width:860px;margin:0 auto;margin-left:max(auto,260px);display:flex;gap:10px}
+#debugbar{max-width:860px;margin:0 auto 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dbg{border:1px dashed #3a4453;background:#0d1116;border-radius:10px;padding:8px 12px;font-size:12.5px;cursor:pointer}
+.dbg:hover{border-color:var(--amber)}
+.dbg:disabled{opacity:.45;cursor:default}
+#debugbar input[type=text]{background:#0d1116;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px 10px;font:inherit;font-size:12.5px;width:130px}
+.maskcards{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.mcard{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0d1116;max-width:230px}
+.mcard img{width:220px;display:block}
+.mcard .mi{padding:6px 8px;font:11px var(--mono);color:var(--muted)}
+.mcard button{margin:0 8px 8px;font-size:11.5px}
+#composer input[type=text]{flex:1;background:#0d1116;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer}
+button.primary{background:linear-gradient(180deg,#eab254,#d3912b);color:#1a1305;border-color:#b87d24;font-weight:650}
+.log{font:11.5px var(--mono);color:var(--muted);max-height:96px;overflow:auto;white-space:pre-wrap}
+.api{margin:8px 12px;border:1px solid #3a4453;border-radius:10px;background:#0d1116;font:11px var(--mono)}
+.api header{position:static;background:none;border:0;padding:8px 10px;display:flex;gap:8px;align-items:center;color:var(--amber)}
+.api pre{white-space:pre-wrap;word-break:break-word;margin:0;padding:8px 10px;color:var(--muted);max-height:280px;overflow:auto}
+.api .ret{border-top:1px dashed #1e252e;color:var(--muted)}
+.replay-link{font:11px var(--mono);color:var(--amber);cursor:pointer}
+</style>
+</head>
+<body>
+<header><h1>chat-wrapper</h1><span class="tag">PHOTO ANALYSIS · TRANSPARENT</span><a href="/flow" style="font:11px var(--mono);color:var(--amber);text-decoration:none;border:1px solid #8a6524;border-radius:6px;padding:2px 8px;margin-left:8px">⚡ Model Flow Visualizer</a><span id="health" style="margin-left:auto;font:11px var(--mono);color:var(--muted)"></span></header>
+<div id="layout">
+<div id="side"><h2>Chats</h2><button id="newchat" class="primary" style="font-size:12.5px">+ New chat</button><div id="chats"></div></div>
+<main><div id="debugbar"><span style="font:11px;color:var(--muted)">DEBUG</span><button class="dbg" id="dbg-describe" title="Send the attached photo to muse-spark for a free-text description">🔍 Describe this image</button><button class="dbg" id="dbg-detect" title="Send the attached photo to sam-3.1 for segmentation">🧩 Detect People</button><input type="text" id="dbg-concept" value="person" title="SAM concept (one noun phrase)"><span style="font:11px;color:var(--muted)">SAPIENS</span><button class="dbg" id="dbg-pose" title="Sapiens2 308 keypoints (local)">Pose</button><button class="dbg" id="dbg-seg" title="Sapiens2 segmentation (local)">Seg</button><button class="dbg" id="dbg-normal" title="Sapiens2 normals (local)">Normal</button><button class="dbg" id="dbg-depth" title="Sapiens2 pointmap depth (local)">Depth</button></div><div id="msgs"></div></main>
+</div>
+<div id="composer"><div class="row">
+<input type="file" id="file" accept="image/*" style="display:none">
+<button id="pick" title="attach photo">📎</button>
+<input type="text" id="text" placeholder="Drop a photo, or ask to fit the avatar mesh…">
+<label style="font:11px var(--mono);color:var(--muted);display:flex;gap:6px;align-items:center"><input type="checkbox" id="fullmaps"> full_maps</label>
+<button class="primary" id="send">Send</button>
+</div></div>
+<script>
+const msgs=document.getElementById('msgs'),fileEl=document.getElementById('file'),textEl=document.getElementById('text'),chatsEl=document.getElementById('chats');
+let chatId=localStorage.getItem('cw_chat')||'';
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const STAGE_LABEL={ingest:'read photo',pose:'Sapiens2 308 keypoints',maps:'seg / normal / depth',body:'SAM 3D Body + joint solve',report:'report'};
+fetch('/api/health').then(r=>r.json()).then(h=>{document.getElementById('health').textContent=(h.muse?'muse live':'muse replay')+(h.active_run?' · busy '+h.active_run:'');}).catch(()=>{});
+async function loadChats(){const r=await fetch('/api/chats');const j=await r.json();chatsEl.innerHTML='';
+(j.chats||[]).forEach(c=>{const b=document.createElement('button');b.className='chatrow'+(c.chat_id===chatId?' active':'');
+b.innerHTML=`<div class="p">${esc(c.preview||'(empty)')}</div><div class="m">${esc(c.chat_id)} · ${c.n_messages} msgs · ${esc(c.updated_at||'')}</div>`;
+b.onclick=()=>openChat(c.chat_id);chatsEl.appendChild(b);});}
+function setChat(id){chatId=id||'';if(chatId)localStorage.setItem('cw_chat',chatId);else localStorage.removeItem('cw_chat');loadChats();}
+document.getElementById('newchat').onclick=()=>{setChat('');msgs.innerHTML='';bub('assistant','New chat — drop a photo and I will walk you through the scan, one step at a time.');};
+function bub(cls,html){const d=document.createElement('div');d.className='bub '+cls;d.innerHTML=html;msgs.appendChild(d);d.scrollIntoView({block:'end'});return d;}
+function toolCard(run_id,preamble,tool){const b=bub('assistant',`<div>${esc(preamble)}</div>`);
+b.insertAdjacentHTML('beforeend',`<div class="tool" id="t-${run_id}"><header><span class="pill running" data-pill>Running…</span><span style="font:11px var(--mono);color:var(--muted)">run_all · ${run_id} · <span data-elapsed>0s</span></span><button data-copy style="margin-left:auto;font-size:11px">copy link</button></header><div class="stages" data-stages></div><div class="log" data-log></div><details class="raw"><summary>tool call + raw</summary><pre>${esc(JSON.stringify(tool,null,2))}</pre><pre data-raw></pre></details></div>`);
+b.querySelector('[data-copy]').onclick=()=>{navigator.clipboard.writeText(location.origin+location.pathname+'#run='+run_id);};
+const cancelBtn=document.createElement('button');cancelBtn.textContent='cancel';cancelBtn.style.fontSize='11px';cancelBtn.style.marginLeft='6px';
+cancelBtn.onclick=async()=>{await fetch(`/api/runs/${run_id}/cancel`,{method:'POST'});};
+b.querySelector('.tool header').appendChild(cancelBtn);return b;}
+function stageRow(host,id){let el=host.querySelector(`[data-stage="${id}"]`);if(el)return el;el=document.createElement('div');el.className='stage';el.dataset.stage=id;el.innerHTML=`<div class="dot" data-dot></div><div><div style="font-weight:600">${STAGE_LABEL[id]||id}</div><div class="meta" data-meta></div><div class="imgs" data-imgs></div></div><div class="meta" data-t></div>`;host.querySelector('[data-stages]').appendChild(el);return el;}
+function apiCard(host,title,post,meta){const d=document.createElement('div');d.className='api';d.dataset.api='open';
+d.innerHTML=`<header>◉ API ${esc(title)}</header><details open><summary>POST (full body, images redacted)</summary><pre>${esc(JSON.stringify(post,null,2))}</pre></details><div class="ret" data-ret>… waiting for return …</div>`;
+host.appendChild(d);return d;}
+function apiReturn(host,trace){let cards=host.querySelectorAll?[...host.querySelectorAll('.api')]:[];let card=cards.filter(c=>c.dataset.api==='open').pop();
+if(!card){card=apiCard(host,trace.meta&&trace.meta.model?('muse-spark '+(trace.meta.model||'')):'muse-spark',trace.post||{});}
+card.dataset.api='done';const r=card.querySelector('[data-ret]');const m=trace.meta||{};
+r.innerHTML=`<details><summary>RETURN · HTTP ${m.status??'?'} · ${m.latency_s??'?'}s · id ${esc(m.request_id||m.response_id||'?')}</summary><pre>${esc(JSON.stringify(trace.response||trace,null,2))}</pre></details>`;}
+function actionBubble(run_id,stage,ev){const b=bub('assistant',`<div>⏸ <b>Your pick needed</b> <span style="font:11px var(--mono);color:var(--muted)">${esc(run_id)} · pauses after ${esc(stage)}</span></div>`);
+b.dataset.actionbubble=run_id+':'+stage;
+b.insertAdjacentHTML('beforeend',`<div class="gate"><div class="q">${esc(ev.data.prompt||('Continue after '+stage+'?'))}</div><div class="opts"></div><div class="hint">the run is paused until you pick</div></div>`);
+const box=b.querySelector('.opts');
+(ev.data.options||[{id:'continue',label:'Continue'}]).forEach(o=>{const btn=document.createElement('button');btn.textContent=o.label||o.id;btn.dataset.choice=o.id;
+btn.onclick=async()=>{btn.disabled=true;btn.textContent+=' …';const r=await fetch(`/api/runs/${run_id}/choice`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({choice:o.id})});
+if(r.ok){box.querySelectorAll('button').forEach(x=>{x.disabled=true;if(x.dataset.choice===o.id)x.classList.add('picked');});const h=b.querySelector('.hint');if(h)h.textContent='picked: '+o.id;}};
+box.appendChild(btn);});
+return b;}
+function stream(run_id){const t0=Date.now();const card=document.getElementById('t-'+run_id);if(!card)return;const es=new EventSource(`/api/runs/${run_id}/events`);
+const tick=setInterval(()=>{const p=card.querySelector('[data-elapsed]');if(p)p.textContent=Math.round((Date.now()-t0)/1000)+'s';},500);
+es.onmessage=e=>{const ev=JSON.parse(e.data);const log=card.querySelector('[data-log]'),raw=card.querySelector('[data-raw]');
+if(ev.type==='stage.start'){const r=stageRow(card,ev.stage);r.querySelector('[data-dot]').className='dot running';}
+else if(ev.type==='stage.log'){log.textContent=(log.textContent+'\n'+ev.data.line).split('\n').slice(-4).join('\n');}
+else if(ev.type==='warn'){log.textContent+='\n⚠ '+ev.data.message;}
+else if(ev.type==='message'){bub('assistant',esc(ev.data.text));}
+else if(ev.type==='gate.open'){actionBubble(run_id,ev.stage,ev);}
+else if(ev.type==='gate.answer'){const g=document.querySelector(`[data-actionbubble="${run_id}:${ev.stage}"]`);if(g){g.querySelectorAll('button').forEach(x=>{x.disabled=true;if(x.dataset.choice===ev.data.choice)x.classList.add('picked');});const h=g.querySelector('.hint');if(h)h.textContent='picked: '+ev.data.choice+(ev.data.auto?' (auto)':'');}}
+else if(ev.type==='api.call'){const d=ev.data||{};apiCard(card,(d.model||'muse-spark')+' · '+(d.purpose||d.url||''),d.post||{});}
+else if(ev.type==='api.return'){apiReturn(card,{post:{},response:ev.data.response||ev.data,meta:ev.data});}
+else if(ev.type==='artifact'){const r=stageRow(card,ev.stage);const d=ev.data;
+if(d.kind==='image'){r.querySelector('[data-imgs]').insertAdjacentHTML('beforeend',`<a href="${d.url}" target="_blank"><img src="${d.url}" loading="lazy" title="${esc(d.label)}"></a>`);}
+else{r.querySelector('[data-meta]').textContent+=(r.querySelector('[data-meta]').textContent?' · ':'')+d.label;}
+if(raw)raw.textContent+=JSON.stringify(d)+'\n';}
+else if(ev.type==='stage.end'){const r=stageRow(card,ev.stage);r.querySelector('[data-dot]').className='dot done';const m=r.querySelector('[data-meta]');const dd=ev.data||{};let s=[];if(dd.identity_l2)s.push('|β| '+dd.identity_l2);if(dd.refine_used)s.push(dd.refine_used);if(dd.pose_median)s.push('pose '+dd.pose_median);if(dd.depth_m)s.push('depth '+dd.depth_m);if(s.length)m.textContent=s.join(' · ');}
+else if(ev.type==='run.end'){clearInterval(tick);es.close();const p=card.querySelector('[data-pill]');const st=ev.data.status;p.className='pill '+(st==='done'?'done':(st==='cancelled'?'cancelled':'failed'));p.textContent=st==='done'?'Done':(st==='cancelled'?'Cancelled':'Failed: '+(ev.data.error||''));
+if(st==='done'&&ev.data.stats){const s=ev.data.stats;const sb=bub('assistant',`Done in <b>${s.total_s}s</b> — |β| ${s.identity_l2} via ${s.refine_used}, focal ${s.focal_px}px, box ${s.bbox_xyxy}.<br><span style="color:var(--muted)">Character-creation numbers only — no inference about the real person.</span>`);
+const br=document.createElement('div');br.className='opts';br.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:8px';
+[['stats.json',`/api/runs/${run_id}/artifact/stats`],['identity_joint.json',`/api/runs/${run_id}/artifact/identity`]].forEach(([label,url])=>{const btn=document.createElement('button');btn.textContent=label;btn.style.fontSize='12.5px';btn.onclick=()=>window.open(url,'_blank');br.appendChild(btn);});
+const cp=document.createElement('button');cp.textContent='copy run link';cp.style.fontSize='12.5px';cp.onclick=()=>{navigator.clipboard.writeText(location.origin+location.pathname+'#run='+run_id);};br.appendChild(cp);sb.appendChild(br);}loadChats();}};
+es.onerror=()=>{};}
+document.getElementById('pick').onclick=()=>fileEl.click();
+let pending=null;fileEl.onchange=()=>{pending=fileEl.files[0]||null;if(pending){textEl.placeholder='Photo attached: '+pending.name+' — add a note or Send';}};
+async function fileB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+async function debugAction(action){
+if(!chatId){bub('assistant','Send a chat message first (or attach + Send) so this debug run is saved to a chat.');return;}
+if(!pending){bub('assistant','Attach a photo first (📎), then click the debug action.');return;}
+const file=pending,concept=document.getElementById('dbg-concept').value||'person';
+const actionLabel={describe:'🔍 Describe this image','detect':'🧩 Detect '+concept,'sapiens-pose':'🧩 Sapiens pose','sapiens-seg':'🧩 Sapiens seg','sapiens-normal':'🧩 Sapiens normal','sapiens-depth':'🧩 Sapiens depth'}[action]||action;
+const url=URL.createObjectURL(file);bub('user',`${esc(actionLabel)}<img class="thumb" src="${url}">`);
+const b64=await fileB64(file);pending=null;fileEl.value='';
+const w=bub('assistant','Working — calling the model…');
+const resp=await fetch('/api/debug/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,filename:file.name,image_b64:b64,concept})});
+const j=await resp.json();
+if(!resp.ok){w.innerHTML=`<b>${esc(action)} failed:</b> ${esc(j.error||resp.status)} <span style="color:var(--muted)">${esc(j.remedy||'')}</span>`;return;}
+w.remove();openChat(chatId);loadChats();}
+document.getElementById('dbg-describe').onclick=()=>debugAction('describe');
+document.getElementById('dbg-detect').onclick=()=>debugAction('detect');
+['pose','seg','normal','depth'].forEach(k=>{document.getElementById('dbg-'+k).onclick=()=>debugAction('sapiens-'+k);});
+function sapiensFiles(chatId,entry){(entry.files||[]).forEach(f=>{if(!/\.(jpg|jpeg|png)$/i.test(f))return;
+const b=bub('assistant',`<img loading="lazy" style="max-width:320px;border-radius:8px" src="/api/chats/${chatId}/file/debug/${entry.debug_id}/${f}"><div style="font:11px var(--mono);color:var(--muted);margin-top:6px">${esc(f)}${entry.stats?' · '+esc(JSON.stringify(entry.stats)).slice(0,140):''}</div>`);
+const btn=document.createElement('button');btn.textContent='Open full size';btn.style.cssText='font-size:12px;margin-top:6px';btn.onclick=()=>window.open(`/api/chats/${chatId}/file/debug/${entry.debug_id}/${f}`,'_blank');b.appendChild(btn);});}
+async function describeMask(debugId,maskId,btn){btn.disabled=true;btn.textContent='Describing…';
+const resp=await fetch('/api/debug/describe-mask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,debug_id:debugId,mask_id:maskId})});
+const j=await resp.json();if(!resp.ok){btn.disabled=false;btn.textContent='Describe this mask →';bub('assistant',`<b>describe-mask failed:</b> ${esc(j.error||resp.status)}`);return;}
+openChat(chatId);loadChats();}
+function maskCards(chatId,entry){
+(entry.masks||[]).forEach(m=>{const b=bub('assistant',`<img loading="lazy" style="max-width:320px;border-radius:8px" src="/api/chats/${chatId}/file/debug/${entry.debug_id}/${m.file}" title="mask M${m.id}"><div style="font:11px var(--mono);color:var(--muted);margin-top:6px">M${m.id} · box [${m.box}] · ${m.pixels}px · ${esc(m.encoding||'')}</div>`);
+const btn=document.createElement('button');btn.textContent='Describe this mask →';btn.style.cssText='font-size:12.5px;margin-top:6px';
+btn.onclick=()=>describeMask(entry.debug_id,m.id,btn);b.appendChild(btn);});
+if(entry.combined){const b=bub('assistant',`<div>Combined overlay — all masks.</div>`);
+const btn=document.createElement('button');btn.textContent='Open combined overlay';btn.style.cssText='font-size:12.5px;margin-top:6px';btn.onclick=()=>window.open(`/api/chats/${chatId}/file/debug/${entry.debug_id}/${entry.combined}`,'_blank');b.appendChild(btn);}}
+document.getElementById('send').onclick=async()=>{
+const file=pending;pending=null;fileEl.value='';const text=textEl.value;textEl.value='';textEl.placeholder='Drop a photo, or ask…';
+if(file){const url=URL.createObjectURL(file);bub('user',`${esc(text||'analyze this photo')}<img class="thumb" src="${url}">`);
+const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text,filename:file.name,image_b64:b64,full_maps:document.getElementById('fullmaps').checked})});
+if(resp.status===409){const j=await resp.json();const wb=bub('assistant',`Busy — run ${esc(j.active_run)} is computing (not waiting for input).`);const row=document.createElement('div');row.style.cssText='display:flex;gap:8px;margin-top:8px';const wbtn=document.createElement('button');wbtn.textContent='Watch that run';wbtn.style.fontSize='12.5px';wbtn.onclick=()=>{toolCard(j.active_run,'watch '+j.active_run,{replay:true});stream(j.active_run);};const cbtn=document.createElement('button');cbtn.textContent='Cancel it and resend';cbtn.style.fontSize='12.5px';cbtn.onclick=async()=>{await fetch(`/api/runs/${j.active_run}/cancel`,{method:'POST'});wb.appendChild(document.createTextNode(' Cancelled — resend your photo.'));};row.appendChild(wbtn);row.appendChild(cbtn);wb.appendChild(row);return;}
+const j=await resp.json();if(j.chat_id)setChat(j.chat_id);const tb=toolCard(j.run_id,j.assistant_text,j.tool_call);if(j.api_trace){apiCard(tb,'chat reply',j.api_trace.post||{});apiReturn(tb,j.api_trace);}stream(j.run_id);}
+else if(text){bub('user',esc(text));const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text})});const j=await resp.json();if(j.chat_id)setChat(j.chat_id);const ab=bub('assistant',esc(j.assistant_text));if(j.api_trace){apiCard(ab,'chat reply',j.api_trace.post||{});apiReturn(ab,j.api_trace);}}};
+async function openChat(id){setChat(id);msgs.innerHTML='';const r=await fetch('/api/chats/'+id);const j=await r.json();
+(j.messages||[]).forEach(m=>{if(m.role==='user'){bub('user',esc(m.text||('['+(m.gate_choice?'choice':'photo')+']')));}else{const b=bub('assistant',esc(m.text||''));if(m.kind==='debug-describe'&&m.crop){const im=document.createElement('div');im.innerHTML=`<img class="thumb" style="max-width:220px" src="/api/chats/${id}/file/debug/${m.debug_id}/${m.crop}">`;b.appendChild(im);const ob=document.createElement('button');ob.textContent='Open crop';ob.style.cssText='font-size:12px;margin-top:6px';ob.onclick=()=>window.open(`/api/chats/${id}/file/debug/${m.debug_id}/${m.crop}`,'_blank');b.appendChild(ob);}if(m.api_trace){apiCard(b,m.kind||'chat reply',m.api_trace.post||{});apiReturn(b,m.api_trace);}if(m.run_id){const rb=document.createElement('button');rb.textContent='▶ replay run '+m.run_id;rb.style.cssText='font-size:12px;margin-top:6px';rb.onclick=()=>{toolCard(m.run_id,'replay '+m.run_id,{replay:true});stream(m.run_id);};b.appendChild(document.createElement('br'));b.appendChild(rb);}if(m.kind==='debug-masks'){maskCards(id,m);}if(m.kind==='debug-sapiens'){sapiensFiles(id,m);}}});}
+loadChats();
+let deep=location.hash.match(/run=([\w-]+)/);
+if(deep){const rid=deep[1];bub('assistant',`Replaying <b>${esc(rid)}</b> — static artifacts below.`);toolCard(rid,'replay','{"replay":true}');stream(rid);}
+else if(chatId){openChat(chatId);}
+</script>
+</body>
+</html>

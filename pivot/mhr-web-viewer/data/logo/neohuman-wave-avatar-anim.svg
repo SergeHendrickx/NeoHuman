@@ -1,0 +1,159 @@
+<svg id="neohumanMasterSvg" class="w-full max-w-4xl h-auto ambient-flow select-none" viewBox="0 0 880 280" fill="none" xmlns="http://www.w3.org/2000/svg"><style>
+                @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500&amp;family=Inter:wght@500&amp;display=swap');
+                .font-display { font-family: 'Space Grotesk', sans-serif; font-size: 76px; font-weight: 500; fill: #0F172A; }
+                .font-sans { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; text-transform: uppercase; fill: #0891B2; }
+                .hidden { display: none; }
+                .taper-ribbon { clip-path: inset(0 100% 0 0); opacity: 0; animation: spawnRibbon 1.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; animation-delay: var(--delay, 0s); }
+                .face-sculpt { clip-path: inset(0 100% 0 0); opacity: 0; animation: spawnRibbon 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: var(--delay, 0.55s); }
+                .face-contour { stroke-dasharray: 380; stroke-dashoffset: 380; opacity: 0; animation: spawnFace 1.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: var(--delay, 0.5s); }
+                .word-char { opacity: 0; animation: spawnChar 0.8s ease forwards; animation-delay: var(--delay, 0.65s); }
+                .neo-bar { opacity: 0; animation: spawnChar 0.65s ease forwards; animation-delay: var(--delay, 0.7s); }
+                .tagline-reveal { opacity: 0; letter-spacing: 0.32em; animation: spawnChar 1.1s ease forwards 1.25s; }
+                @keyframes spawnRibbon { 25% { opacity: 1; } to { clip-path: inset(0 0% 0 0); opacity: 1; } }
+                @keyframes spawnFace { 25% { opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+                @keyframes spawnChar { to { opacity: 1; } }
+            </style>
+                    <defs>
+                        <!-- Unified Option 05 Reference Gradient (Cerulean Left Tips -> Royal Cobalt Center -> Deep Indigo-Violet Right) -->
+                        <linearGradient id="waveGrad" x1="12" y1="152" x2="236" y2="128" gradientUnits="userSpaceOnUse">
+                            <stop id="gradStop1" offset="0%" stop-color="#1982C4"/>
+                            <stop id="gradStop2" offset="42%" stop-color="#3F56B5"/>
+                            <stop id="gradStop3" offset="100%" stop-color="#6A389F"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- ========================================================= -->
+                    <!-- ICON: WAVE AVATAR (True Calligraphic Tapered Vector)      -->
+                    <!-- ========================================================= -->
+                    <g id="waveAvatarIcon" transform="translate(18, 4)">
+
+                        <!-- 1. UPPER CRANIUM CALLIGRAPHIC RIBBONS (Razor-sharp left tips -> smooth right dome) -->
+                        <g fill="url(#waveGrad)">
+                            <!-- Crown Ribbon 1 (Topmost arch, feathers from x=84 to right temple x=233) -->
+                            <path class="taper-ribbon" style="--delay: 0.02s" d="M 84 42 C 122 25, 174 28, 206 54 C 224 69, 233 90, 234 114 C 232 92, 220 73, 201 59 C 170 35, 122 31, 84 42 Z"/>
+
+                            <!-- Crown Ribbon 2 (Feathers from x=66) -->
+                            <path class="taper-ribbon" style="--delay: 0.06s" d="M 66 56 C 108 34, 164 38, 202 64 C 220 77, 231 95, 234 115 C 229 98, 216 82, 196 69 C 160 45, 106 40, 66 56 Z"/>
+
+                            <!-- Crown Ribbon 3 (Feathers from x=54) -->
+                            <path class="taper-ribbon" style="--delay: 0.10s" d="M 54 71 C 98 45, 154 50, 196 75 C 214 86, 227 100, 234 116 C 226 103, 211 91, 190 80 C 150 58, 96 51, 54 71 Z"/>
+
+                            <!-- Forehead S-Wave Ribbon 4 (Feathers from x=45, sweeps across forehead to temple) -->
+                            <path class="taper-ribbon" style="--delay: 0.14s" d="M 45 87 C 88 58, 138 62, 176 84 C 198 96, 218 102, 233 117 C 216 106, 194 101, 170 89 C 134 70, 86 64, 45 87 Z"/>
+
+                            <!-- Mid-Forehead S-Wave Ribbon 5 (Feathers from x=36, dips gracefully near glabella) -->
+                            <path class="taper-ribbon" style="--delay: 0.18s" d="M 36 104 C 78 72, 126 72, 156 97 C 172 110, 194 108, 228 118 C 194 112, 168 113, 150 101 C 122 80, 76 78, 36 104 Z"/>
+
+                            <!-- Lower-Forehead Wave 6 (Feathers from x=26, flows into fine inner brow crease) -->
+                            <path class="taper-ribbon" style="--delay: 0.22s" d="M 26 122 C 68 85, 118 82, 145 109 C 156 120, 162 134, 163 148 C 160 135, 152 123, 139 113 C 114 91, 66 91, 26 122 Z"/>
+                        </g>
+
+                        <!-- 2. SIGNATURE BROAD SCULPTED CHEEK & NOSE-BRIDGE SWEEP -->
+                        <g fill="url(#waveGrad)">
+                            <!-- Secondary Upper Cheek Strand (Feathers from x=18, hugs above the main broad ribbon) -->
+                            <path class="taper-ribbon" style="--delay: 0.26s" d="M 18 136 C 58 98, 112 92, 140 120 C 152 132, 157 148, 158 164 C 154 149, 147 136, 134 125 C 108 102, 56 105, 18 136 Z"/>
+
+                            <!-- MAIN BROAD SCULPTED RIBBON (Sharp left tip at x=10, swells across cheek, curves down into nose bridge & tip) -->
+                            <path class="taper-ribbon" style="--delay: 0.30s" d="M 10 151 C 48 110, 106 102, 136 132 C 148 144, 152 158, 153 172 C 154 176, 162 178, 173 176 C 179 175, 180 181, 170 183 C 159 185, 148 183, 140 176 C 132 168, 126 146, 104 134 C 76 118, 40 126, 10 151 Z"/>
+                        </g>
+
+                        <!-- 3. CASCADING LOWER CHEEK, LIPS & CHIN RIBBONS (Organic flow without mustache-like thickness) -->
+                        <g fill="url(#waveGrad)">
+                            <!-- Sub-Cheek Ribbon 1 (Tucks directly under the broad cheek sweep toward nostril base) -->
+                            <path class="taper-ribbon" style="--delay: 0.34s" d="M 18 158 C 52 126, 94 124, 118 148 C 130 160, 138 175, 152 181 C 135 179, 124 166, 112 154 C 90 132, 50 132, 18 158 Z"/>
+
+                            <!-- Sub-Cheek Ribbon 2 (Flows toward philtrum and delicate upper lip wave) -->
+                            <path class="taper-ribbon" style="--delay: 0.38s" d="M 24 166 C 56 138, 92 138, 115 160 C 127 172, 138 183, 155 186 C 136 185, 121 177, 109 165 C 88 145, 54 144, 24 166 Z"/>
+
+                            <!-- Upper Lip Wave Ribbon 3 (Flows seamlessly into the soft Cupid's bow and tapers to a razor point at the right mouth corner) -->
+                            <path class="taper-ribbon" style="--delay: 0.42s" d="M 31 174 C 60 150, 90 150, 112 171 C 124 181, 137 188, 151 188 C 156 188, 160 186, 164 187 C 168 188, 173 186, 178 187 C 185 188, 191 190, 199 190 C 191 192, 182 192, 174 191 C 167 190, 161 191, 153 192 C 134 193, 118 186, 105 175 C 85 158, 58 156, 31 174 Z"/>
+
+                            <!-- Lower Lip Shadow Ribbon 4 (Tapers into a delicate upward crescent cradling the lower lip) -->
+                            <path class="taper-ribbon" style="--delay: 0.46s" d="M 39 183 C 64 163, 89 164, 110 183 C 124 195, 142 200, 162 199 C 172 198, 180 195, 187 191 C 181 198, 170 203, 155 204 C 134 205, 116 196, 102 186 C 84 170, 62 169, 39 183 Z"/>
+
+                            <!-- Chin Cleft Ribbon 5 (Flows under the lower lip into the rounded chin cleft) -->
+                            <path class="taper-ribbon" style="--delay: 0.50s" d="M 48 192 C 70 176, 90 178, 109 196 C 123 209, 140 214, 158 211 C 138 217, 118 213, 103 200 C 86 185, 68 182, 48 192 Z"/>
+
+                            <!-- Lower Chin Ribbon 6 (Sweeps down into the lower chin contour) -->
+                            <path class="taper-ribbon" style="--delay: 0.54s" d="M 58 201 C 76 190, 92 193, 110 210 C 125 224, 146 228, 168 224 C 144 231, 120 227, 104 213 C 88 199, 74 195, 58 201 Z"/>
+
+                            <!-- Base Jawline & Right Temple Continuous Outer Contour Ribbon 7 -->
+                            <path class="taper-ribbon" style="--delay: 0.58s" d="M 68 210 C 84 204, 96 209, 112 223 C 130 239, 156 242, 180 228 C 202 215, 219 190, 228 164 C 233 149, 235 135, 234 123 C 237 137, 236 153, 232 168 C 223 196, 205 221, 182 234 C 156 248, 128 244, 107 226 C 92 213, 81 208, 68 210 Z"/>
+                        </g>
+
+                        <!-- 4. SCULPTED RIGHT-SIDE FACIAL ARCHITECTURE (Unified gradient + needle-thin eye & lip corners) -->
+                        <g fill="url(#waveGrad)">
+                            <!-- Sweeping Right Eyebrow & Downward Inner Nose Bridge Curve -->
+                            <path class="face-sculpt" style="--delay: 0.58s" d="M 234 120 C 222 103, 194 98, 172 109 C 162 115, 160 128, 163 145 C 165 157, 169 165, 175 171 C 179 175, 178 180, 171 182 C 175 178, 174 174, 170 169 C 164 162, 162 150, 163 136 C 165 122, 174 114, 192 111 C 210 108, 226 113, 234 120 Z"/>
+
+                            <!-- Delicate Glabella / Inner Forehead Tapered Whiskers -->
+                            <path class="face-sculpt" style="--delay: 0.62s" d="M 150 93 C 162 97, 174 98, 188 97 C 174 100, 162 99, 150 93 Z"/>
+                            <path class="face-sculpt" style="--delay: 0.65s" d="M 155 103 C 165 106, 173 106, 183 104 C 173 108, 164 108, 155 103 Z"/>
+
+                            <!-- Upper Eyelid Fold Crease (Razor-thin tapered tips on both ends) -->
+                            <path class="face-sculpt" style="--delay: 0.64s" d="M 167 128 C 179 114, 204 113, 224 123 C 204 116, 180 117, 167 128 Z"/>
+
+                            <!-- Calligraphic Almond Eye: Upper Lid (Needle-thin inner tear duct at x=169, swells over iris, razor-thin outer wing at x=232) -->
+                            <path class="face-sculpt" style="--delay: 0.68s" d="M 169 132 C 179 120, 204 119, 223 126 C 227 127.5, 230 127.5, 232 126.5 C 229 129.5, 224 130.5, 218 129.5 C 203 124.5, 182 124.5, 169 132 Z"/>
+
+                            <!-- Calligraphic Almond Eye: Lower Lid (Detached needle-thin inner tip at x=173, swells gently at center, tapers into outer corner at x=227) -->
+                            <path class="face-sculpt" style="--delay: 0.71s" d="M 173 133.5 C 185 137.5, 205 137.5, 224 128.5 C 210 140.5, 186 141.5, 173 133.5 Z"/>
+
+                            <!-- Fine Tapered Vertical Nose Bridge Inner Contour -->
+                            <path class="face-sculpt" style="--delay: 0.66s" d="M 157 124 C 158 140, 159 157, 164 169 C 166 173, 170 175, 175 175.5 C 169 176.5, 164 174.5, 162 170 C 157 158, 156 140, 157 124 Z"/>
+
+                            <!-- Delicate Philtrum Dimple Vertical Taper -->
+                            <path class="face-sculpt" style="--delay: 0.72s" d="M 159 178 C 160.5 181, 160.5 184, 159 186.5 C 157.5 184, 157.5 181, 159 178 Z"/>
+
+                            <!-- Elegant Cheekbone Hollow Contour (Sharp tapered ends on the right cheek near the N) -->
+                            <path class="face-sculpt" style="--delay: 0.76s" d="M 231 159 C 224 169, 211 178, 205 189 C 201 196, 199 203, 198 209 C 201 203, 205 196, 210 190 C 216 181, 226 172, 231 159 Z"/>
+                            <path class="face-sculpt" style="--delay: 0.78s" d="M 223 174 C 216 183, 210 191, 206 202 C 211 192, 218 184, 223 174 Z"/>
+
+                            <!-- Chin Cleft Curved Tapered Hook -->
+                            <path class="face-sculpt" style="--delay: 0.80s" d="M 165 205 C 156 208, 155 218, 165 223 C 158 218, 158 210, 165 205 Z"/>
+                        </g>
+                    </g>
+
+                    <!-- ========================================================= -->
+                    <!-- WORDMARK: Primary "Neohuman" Lockup & Stylized Variant    -->
+                    <!-- ========================================================= -->
+                    
+                    <!-- MODE A: Clean Modern "Neohuman" (Matches Image 1, Option 05 Card) -->
+                    <g id="wordmarkCleanGroup" transform="translate(278, 0)">
+                        <text x="0" y="156" class="font-display text-[76px] font-medium tracking-[-0.02em] fill-current">
+                            <tspan class="word-char" style="--delay: 0.55s">N</tspan><tspan class="word-char" style="--delay: 0.61s">e</tspan><tspan class="word-char" style="--delay: 0.67s">o</tspan><tspan class="word-char" style="--delay: 0.73s">h</tspan><tspan class="word-char" style="--delay: 0.79s">u</tspan><tspan class="word-char" style="--delay: 0.85s">m</tspan><tspan class="word-char" style="--delay: 0.91s">a</tspan><tspan class="word-char" style="--delay: 0.97s">n</tspan>
+                        </text>
+                        <text x="4" y="192" class="tagline-reveal font-sans text-[13px] font-medium uppercase fill-[#3F56B5]">
+                            open digital avatars
+                        </text>
+                    </g>
+
+                    <!-- MODE B: Custom Geometric Vector "NΞOHUMΛN" (Matches Board Header) -->
+                    <g id="wordmarkStylizedGroup" class="hidden" transform="translate(285, 104)" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                        <!-- N -->
+                        <path class="word-char" style="--delay: 0.55s" d="M 4 52 V 6 L 40 52 V 6"/>
+                        <!-- Ξ (Three Horizontal Bars in Gradient) -->
+                        <g stroke="url(#waveGrad)" stroke-width="5.5">
+                            <line class="neo-bar" style="--delay: 0.64s" x1="64" y1="6" x2="98" y2="6"/>
+                            <line class="neo-bar" style="--delay: 0.72s" x1="64" y1="29" x2="94" y2="29"/>
+                            <line class="neo-bar" style="--delay: 0.80s" x1="64" y1="52" x2="98" y2="52"/>
+                        </g>
+                        <!-- O -->
+                        <circle class="word-char" style="--delay: 0.70s" cx="144" cy="29" r="23"/>
+                        <!-- H -->
+                        <path class="word-char" style="--delay: 0.76s" d="M 192 6 V 52 M 228 6 V 52 M 192 29 H 228"/>
+                        <!-- U -->
+                        <path class="word-char" style="--delay: 0.82s" d="M 254 6 V 34 C 254 45, 262 52, 273 52 C 284 52, 292 45, 292 34 V 6"/>
+                        <!-- M -->
+                        <path class="word-char" style="--delay: 0.88s" d="M 318 52 V 6 L 342 36 L 366 6 V 52"/>
+                        <!-- Λ (Crossbar-free A) -->
+                        <path class="word-char" style="--delay: 0.94s" stroke="url(#waveGrad)" d="M 390 52 L 412 6 L 434 52"/>
+                        <!-- N -->
+                        <path class="word-char" style="--delay: 1.00s" d="M 456 52 V 6 L 492 52 V 6"/>
+
+                        <!-- Tagline under Stylized Wordmark -->
+                        <text x="4" y="88" stroke="none" class="tagline-reveal font-sans text-[13px] font-medium uppercase fill-[#3F56B5]">
+                            open digital avatars
+                        </text>
+                    </g>
+                </svg>

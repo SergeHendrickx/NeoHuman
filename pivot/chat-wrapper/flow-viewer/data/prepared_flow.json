@@ -1,0 +1,6 @@
+{
+  "preset": "meta-avatar",
+  "note": "Prepared demo graph: Source Photo -> Sapiens2 pose/seg/normal/depth cards -> SAM 3D Body & Joint Solver (MHR base mesh, identity + 72 expression coefficients) -> Canonical A-Pose -> VGGT multi-view check + Character Exporter. Loaded at boot by flow-viewer; every Meta model invocation is its own card.",
+  "run": "20261103-213035-3359",
+  "photo": "meta_avatar.jpg"
+}

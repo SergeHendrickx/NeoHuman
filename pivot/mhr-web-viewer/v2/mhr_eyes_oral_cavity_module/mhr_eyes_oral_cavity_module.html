@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MHR Modular Eyes, Teeth & Tongue Testbed</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #0b0f17; color: #e2e8f0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    input[type="range"] { accent-color: #38bdf8; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #111827; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    .preset-btn { padding: 4px 10px; border-radius: 8px; background: #1e293b; border: 1px solid #334155; font-size: 11px; font-weight: 600; color: #e2e8f0; transition: background .15s; }
+    .preset-btn:hover { background: #0f766e; border-color: #14b8a6; }
+    .preset-facs:hover { background: #7c3aed; border-color: #a78bfa; }
+    .preset-gaze:hover { background: #0369a1; border-color: #38bdf8; }
+  </style>
+</head>
+<body class="flex h-screen w-screen select-none">
+
+  <!-- Left 3D Viewport -->
+  <div class="relative flex-1 h-full">
+    <canvas id="viewport" class="w-full h-full block"></canvas>
+
+    <!-- Overlay Status / Legend -->
+    <div class="absolute top-4 left-4 bg-slate-900/85 backdrop-blur-md border border-slate-700/70 rounded-xl p-3.5 shadow-xl pointer-events-none max-w-md">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="h-2.5 w-2.5 rounded-full bg-sky-400 animate-pulse"></span>
+        <h1 class="text-sm font-bold tracking-wide uppercase text-sky-400">MHR Sub-Rig Module: Eyes & Oral Cavity</h1>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        MHR omits eye, teeth, and tongue geometry from its base body topology. This drop-in module creates a <code class="text-amber-300">MHRHeadAttachments</code> controller bound to <code class="text-emerald-300">head</code> and <code class="text-emerald-300">jaw</code> bones, combining skeletal pose rotations with localized morph targets.
+      </p>
+      <div id="coupledReadout" class="mt-2.5 pt-2 border-t border-slate-800 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono text-slate-400">
+        <div>FACS UpperLidFollow: <span id="valLidUp" class="text-sky-300">0.00</span></div>
+        <div>FACS LowerLidFollow: <span id="valLidDown" class="text-sky-300">0.00</span></div>
+        <div>Tongue Compute Gate: <span id="valGate" class="text-emerald-400">ACTIVE</span></div>
+        <div>Active Morph Deltas: <span id="valMorphs" class="text-amber-300">9 targets</span></div>
+      </div>
+    </div>
+
+    <!-- Camera Preset Buttons -->
+    <div class="absolute bottom-4 left-4 flex gap-2 flex-wrap max-w-[80%]">
+      <button id="camFullBtn" class="px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-medium border border-slate-600 transition">Full Head View</button>
+      <button id="camEyesBtn" class="px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-medium border border-slate-600 transition">Focus Eyes</button>
+      <button id="camMouthBtn" class="px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-medium border border-slate-600 transition">Focus Oral Cavity</button>
+      <button id="blinkBtn" class="px-3 py-1.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-xs font-medium border border-sky-700 transition">Blink Now</button>
+      <button id="toggleGhostBtn" class="px-3 py-1.5 rounded-lg bg-sky-900/60 hover:bg-sky-800/80 text-sky-200 text-xs font-medium border border-sky-700 transition">Toggle MHR Head Proxy</button>
+      <button id="codeModalBtn" class="px-3 py-1.5 rounded-lg bg-emerald-900/70 hover:bg-emerald-800 text-emerald-200 text-xs font-semibold border border-emerald-600 transition">View Integration Guide & Code</button>
+    </div>
+  </div>
+
+  <!-- Right Control Sidebar -->
+  <aside class="w-96 h-full bg-slate-900 border-l border-slate-800 flex flex-col">
+    <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+      <div>
+        <h2 class="text-sm font-bold text-white">Sub-Rig Parameters</h2>
+        <p class="text-[11px] text-slate-400">Skeletal Pose ($\theta$) vs. Local Blendshapes ($\beta$)</p>
+      </div>
+      <button id="resetBtn" class="text-xs px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">Reset All</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto custom-scroll p-4 space-y-6">
+
+      <!-- SECTION 1: EYES -->
+      <section class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-3.5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400">1. Eyeballs (Pose + Shader)</h3>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">eye_l / eye_r bones</span>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Gaze Yaw (Left / Right)</label><span id="lblEyeYaw" class="font-mono text-slate-400">0°</span></div>
+            <input id="eyeYaw" type="range" min="-35" max="35" step="0.5" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Gaze Pitch (Up / Down)</label><span id="lblEyePitch" class="font-mono text-slate-400">0°</span></div>
+            <input id="eyePitch" type="range" min="-25" max="25" step="0.5" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Vergence (Cross-Eyed)</label><span id="lblEyeVergence" class="font-mono text-slate-400">0°</span></div>
+            <input id="eyeVergence" type="range" min="-10" max="20" step="0.5" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Pupil Dilation (Expression / Shader)</label><span id="lblPupil" class="font-mono text-slate-400">0.45</span></div>
+            <input id="pupilSize" type="range" min="0.15" max="0.85" step="0.01" value="0.45" class="w-full" />
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Iris Melanin / Color</label>
+              <input id="irisColor" type="color" value="#2e77bb" class="w-full h-7 rounded bg-slate-800 border border-slate-700 cursor-pointer" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Sclera Redness (Veins)</label>
+              <input id="scleraRedness" type="range" min="0" max="1" step="0.01" value="0.15" class="w-full mt-1.5" />
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-800/80 space-y-2">
+            <div class="text-[11px] font-semibold text-sky-300 uppercase tracking-wide">Eyelids + Blink</div>
+            <div>
+              <div class="flex justify-between mb-0.5"><label>Lid Openness</label><span id="lblLidOpen" class="font-mono text-slate-400">1.00</span></div>
+              <input id="lidOpen" type="range" min="0" max="1" step="0.01" value="1" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5"><label>Squint</label><span id="lblSquint" class="font-mono text-slate-400">0.00</span></div>
+              <input id="squint" type="range" min="0" max="1" step="0.01" value="0" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5"><label>Manual Blink (shut)</label><span id="lblBlink" class="font-mono text-slate-400">0.00</span></div>
+              <input id="blinkAmt" type="range" min="0" max="1" step="0.01" value="0" class="w-full" />
+            </div>
+            <label class="flex items-center gap-2 text-[11px] text-slate-300 pt-1">
+              <input id="autoBlink" type="checkbox" checked class="accent-sky-400" /> Auto-blink every 2–5s + gaze-coupled lid droop
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: JAW & TEETH -->
+      <section class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-3.5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">2. Mouth & Dental Arch</h3>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">Arch Morphs</span>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <div>
+            <div class="flex justify-between mb-0.5"><label class="font-semibold text-white">Jaw Open ($\theta_{\text{jaw}}$ Pose)</label><span id="lblJawOpen" class="font-mono text-amber-300">12°</span></div>
+            <input id="jawOpen" type="range" min="0" max="38" step="0.5" value="12" class="w-full" />
+          </div>
+          <label class="flex items-center gap-2 text-[11px] text-slate-300">
+            <input id="occlusionOn" type="checkbox" checked class="accent-amber-400" /> Enable occlusion culling (hide + skip oral updates when closed)
+          </label>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Teeth Visible Count (Arch Pair Trim)</label><span id="lblTeethCount" class="font-mono text-slate-400">14 / arch</span></div>
+            <input id="teethCount" type="range" min="6" max="14" step="2" value="14" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Dental Crowding / Crookedness</label><span id="lblCrooked" class="font-mono text-slate-400">0.00</span></div>
+            <input id="teethCrooked" type="range" min="-1" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Central Diastema (Front Gap)</label><span id="lblGap" class="font-mono text-slate-400">0.00</span></div>
+            <input id="teethGap" type="range" min="0" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Overbite / Underbite</label><span id="lblOverbite" class="font-mono text-slate-400">0.00</span></div>
+            <input id="teethOverbite" type="range" min="-1" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Canine Fang Length (Vampiric)</label><span id="lblFangs" class="font-mono text-slate-400">0.00</span></div>
+            <input id="teethFangs" type="range" min="0" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: TONGUE -->
+      <section class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-3.5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-rose-400">3. Tongue (3-Bone + Morphs)</h3>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800">Rasras et al. Hybrid</span>
+        </div>
+
+        <p class="text-[11px] text-slate-400">Skeletal chain (<code class="text-slate-200">base → mid → tip</code>) for gross articulation + localized hydrostat blendshapes.</p>
+
+        <div class="space-y-2 text-xs">
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Spine Stick Out (Protrusion)</label><span id="lblTongueOut" class="font-mono text-slate-400">0.00</span></div>
+            <input id="tongueOut" type="range" min="0" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Spine Curl Up / Down (Pitch)</label><span id="lblTongueCurl" class="font-mono text-slate-400">0.00</span></div>
+            <input id="tongueCurl" type="range" min="-1" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Spine Lateral Swing (Yaw)</label><span id="lblTongueSwing" class="font-mono text-slate-400">0.00</span></div>
+            <input id="tongueSwing" type="range" min="-1" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div class="pt-1 border-t border-slate-800/80">
+            <div class="flex justify-between mb-0.5"><label>Morph: Wide ↔ Narrow (Hydrostat)</label><span id="lblTongueWidth" class="font-mono text-slate-400">0.00</span></div>
+            <input id="tongueWidth" type="range" min="-1" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Morph: U-Roll / Taco Groove</label><span id="lblTongueRoll" class="font-mono text-slate-400">0.00</span></div>
+            <input id="tongueRoll" type="range" min="0" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-0.5"><label>Morph: Dorsum Hump (/k/, /g/)</label><span id="lblTongueThickness" class="font-mono text-slate-400">0.00</span></div>
+            <input id="tongueThickness" type="range" min="-0.5" max="1" step="0.01" value="0" class="w-full" />
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: PRESETS & EXCHANGE -->
+      <section class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-3.5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">4. Visemes, FACS & JSON</h3>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">One-click</span>
+        </div>
+        <div>
+          <div class="text-[11px] text-slate-400 mb-1.5">Visemes (jaw + tongue)</div>
+          <div class="flex flex-wrap gap-1.5" id="visemeRow">
+            <button data-viseme="rest" class="preset-btn">Rest</button>
+            <button data-viseme="A" class="preset-btn">A</button>
+            <button data-viseme="E" class="preset-btn">E</button>
+            <button data-viseme="I" class="preset-btn">I</button>
+            <button data-viseme="O" class="preset-btn">O</button>
+            <button data-viseme="U" class="preset-btn">U</button>
+            <button data-viseme="M" class="preset-btn">M/B/P</button>
+            <button data-viseme="F" class="preset-btn">F/V</button>
+            <button data-viseme="L" class="preset-btn">L</button>
+            <button data-viseme="TH" class="preset-btn">TH</button>
+            <button data-viseme="S" class="preset-btn">S/Z</button>
+            <button data-viseme="K" class="preset-btn">K/G</button>
+          </div>
+        </div>
+        <div>
+          <div class="text-[11px] text-slate-400 mb-1.5">FACS expressions (lids + gaze + jaw)</div>
+          <div class="flex flex-wrap gap-1.5" id="facsRow">
+            <button data-facs="neutral" class="preset-btn preset-facs">Neutral</button>
+            <button data-facs="happy" class="preset-btn preset-facs">Happy</button>
+            <button data-facs="surprised" class="preset-btn preset-facs">Surprised</button>
+            <button data-facs="angry" class="preset-btn preset-facs">Angry</button>
+            <button data-facs="sad" class="preset-btn preset-facs">Sad</button>
+          </div>
+        </div>
+        <div>
+          <div class="text-[11px] text-slate-400 mb-1.5">Gaze presets</div>
+          <div class="flex flex-wrap gap-1.5" id="gazeRow">
+            <button data-gaze="center" class="preset-btn preset-gaze">Center</button>
+            <button data-gaze="left" class="preset-btn preset-gaze">Left</button>
+            <button data-gaze="right" class="preset-btn preset-gaze">Right</button>
+            <button data-gaze="up" class="preset-btn preset-gaze">Up</button>
+            <button data-gaze="down" class="preset-btn preset-gaze">Down</button>
+          </div>
+        </div>
+        <div class="pt-2 border-t border-slate-800/80 flex gap-2">
+          <button id="exportJsonBtn" class="flex-1 px-2 py-1.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-100 text-xs font-semibold border border-emerald-700 transition">Copy / Download JSON</button>
+          <button id="importJsonBtn" class="flex-1 px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-600 transition">Paste + Apply JSON</button>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- JSON Exchange Modal -->
+  <div id="jsonModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-6">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full flex flex-col shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+        <div>
+          <h2 class="text-sm font-bold text-white">Sub-Rig Parameters as JSON</h2>
+          <p class="text-[11px] text-slate-400">Copy, download, paste back, Apply — full round-trip for MHR pipeline use</p>
+        </div>
+        <button id="closeJsonBtn" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">Close</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <textarea id="jsonText" rows="12" spellcheck="false" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 font-mono text-[11px] text-emerald-200 focus:outline-none focus:border-emerald-500"></textarea>
+        <div class="flex gap-2">
+          <button id="copyJsonBtn" class="flex-1 px-2 py-1.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-100 text-xs font-semibold border border-emerald-700">Copy to clipboard</button>
+          <button id="downloadJsonBtn" class="flex-1 px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-600">Download .json</button>
+          <button id="applyJsonBtn" class="flex-1 px-2 py-1.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-100 text-xs font-semibold border border-sky-700">Apply to viewport</button>
+        </div>
+        <p id="jsonStatus" class="text-[11px] font-mono text-slate-400"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Integration Architecture Modal -->
+  <div id="codeModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-6">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+        <div>
+          <h2 class="text-base font-bold text-white">Integrating Eyes, Teeth & Tongue into MHR (Three.js / WebGPU)</h2>
+          <p class="text-xs text-slate-400">Copy-paste pattern — now backed by <code class="text-emerald-300">mhr-eyes-oral-module.js</code> in this folder</p>
+        </div>
+        <button id="closeModalBtn" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">Close</button>
+      </div>
+      <div class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs leading-relaxed text-slate-300">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+            <div class="font-bold text-sky-400 mb-1">1. Parent to MHR Bones</div>
+            Attach <code class="text-amber-300">eyeLeftBone</code>, <code class="text-amber-300">eyeRightBone</code>, lids + <code class="text-amber-300">upperJawGroup</code> to MHR's <code class="text-emerald-300">head</code> bone. Attach <code class="text-amber-300">lowerJawGroup</code> to MHR's <code class="text-emerald-300">jaw</code> bone.
+          </div>
+          <div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+            <div class="font-bold text-amber-400 mb-1">2. Holistic Dental Morphs</div>
+            Instead of 28 individual tooth bones, crookedness, diastema gap, and overbite are encoded as <strong>whole-arch vertex morph targets</strong> — 0 extra bones, 4 floats.
+          </div>
+          <div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+            <div class="font-bold text-rose-400 mb-1">3. Occlusion Gating</div>
+            Skip updating oral morph targets or tongue compute passes whenever <code class="text-emerald-300">jawOpen &lt; 0.02</code> and <code class="text-emerald-300">betaF[mouthOpen] &lt; 0.05</code>. Groups are hidden via <code class="text-emerald-300">visible=false</code>.
+          </div>
+        </div>
+
+        <pre class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-slate-200 overflow-x-auto"><code>import { createMHREyesAndMouthModule } from './mhr-eyes-oral-module.js';
+
+// 1. Instantiate the modular attachment system and bind to your MHR skeleton
+const headBone = mhrSkinnedMesh.skeleton.getBoneByName('head');
+const jawBone  = mhrSkinnedMesh.skeleton.getBoneByName('jaw');
+
+const oralEyeSystem = createMHREyesAndMouthModule();
+headBone.add(
+  oralEyeSystem.eyeLeftBone, oralEyeSystem.eyeRightBone,
+  oralEyeSystem.lidLeft.group, oralEyeSystem.lidRight.group,
+  oralEyeSystem.upperJawGroup
+);
+jawBone.add(oralEyeSystem.lowerJawGroup); // lower teeth + tongue + mouth floor ride on the mandible!
+
+// 2. Per-frame sync with MHR's 204 parameters & 72 FACS expression blendshapes
+function updateCharacterSubRigs(gazePitch, gazeYaw, mhrExpressionBeta72) {
+  const { upperLidFollow, lowerLidFollow } = oralEyeSystem.setGaze(gazeYaw, gazePitch, 0);
+  mhrExpressionBeta72[FACS_IDX.EYE_LOOK_UP]   = Math.max(0, upperLidFollow);
+  mhrExpressionBeta72[FACS_IDX.EYE_LOOK_DOWN] = Math.max(0, lowerLidFollow);
+
+  // Occlusion culling: hide/skip oral cavity work when mouth is closed
+  const mouthOpenBeta = mhrExpressionBeta72[FACS_IDX.JAW_OPEN] ?? 0;
+  const jawDeg = THREE.MathUtils.radToDeg(jawBone.rotation.x);
+  const isVisible = oralEyeSystem.updateOcclusion(jawDeg, mouthOpenBeta);
+  if (isVisible) {
+    oralEyeSystem.setTeeth({ count: 14, crooked: 0, gap: 0, overbite: 0, fangs: 0 });
+    oralEyeSystem.setTongue({ out: 0.2, curl: 0, swing: 0, width: 0, roll: 0, thick: 0 });
+  }
+}</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { createMHREyesAndMouthModule } from './mhr-eyes-oral-module.js';
+
+    // === 1. SCENE, CAMERA, LIGHTING (now with IBL for clearcoat) ===
+    const canvas = document.getElementById('viewport');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(canvas.clientWidth || window.innerWidth - 384, canvas.clientHeight || window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0f17);
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const camera = new THREE.PerspectiveCamera(35, canvas.clientWidth / canvas.clientHeight, 0.05, 50);
+    camera.position.set(0, 0.04, 0.42);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.target.set(0, -0.01, 0.02);
+
+    const keyLight = new THREE.DirectionalLight(0xfff7ed, 2.6);
+    keyLight.position.set(1.5, 2.0, 2.5);
+    scene.add(keyLight);
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 1.1);
+    fillLight.position.set(-2.0, 0.5, 1.5);
+    scene.add(fillLight);
+    const oralPointLight = new THREE.PointLight(0xffedd5, 0.9, 0.5);
+    oralPointLight.position.set(0, -0.02, 0.08);
+    scene.add(oralPointLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+
+    // === 2. MHR HEAD & JAW PROXY ===
+    const mhrHeadBone = new THREE.Bone();
+    mhrHeadBone.name = 'MHR_head';
+    scene.add(mhrHeadBone);
+    const mhrJawBone = new THREE.Bone();
+    mhrJawBone.name = 'MHR_jaw';
+    mhrJawBone.position.set(0, -0.032, -0.025);
+    mhrHeadBone.add(mhrJawBone);
+
+    const headProxyGroup = new THREE.Group();
+    const craniumGeo = new THREE.SphereGeometry(0.095, 24, 18);
+    craniumGeo.scale(0.88, 1.12, 1.0);
+    const wireMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.08 });
+    const craniumMesh = new THREE.Mesh(craniumGeo, wireMat);
+    craniumMesh.position.set(0, 0.02, -0.02);
+    headProxyGroup.add(craniumMesh);
+    mhrHeadBone.add(headProxyGroup);
+
+    // === 3. MODULE INSTANTIATION (replaces inline rig builders) ===
+    const oralEyeSystem = createMHREyesAndMouthModule();
+    mhrHeadBone.add(
+      oralEyeSystem.eyeLeftBone,
+      oralEyeSystem.eyeRightBone,
+      oralEyeSystem.lidLeft.group,
+      oralEyeSystem.lidRight.group,
+      oralEyeSystem.upperJawGroup
+    );
+    mhrJawBone.add(oralEyeSystem.lowerJawGroup);
+
+    const tongueHelper = new THREE.SkeletonHelper(oralEyeSystem.tongueBones[0]);
+    tongueHelper.material.linewidth = 2;
+    scene.add(tongueHelper);
+
+    // === 4. UI STATE (auto-blink envelope) ===
+    let autoBlinkEnvelope = 0;
+    let nextBlinkAt = performance.now() + 2500;
+    let blinkStartAt = -1;
+    const $ = (id) => document.getElementById(id);
+
+    function triggerBlink() { blinkStartAt = performance.now(); }
+
+    function updateAutoBlink(now) {
+      if (!$('autoBlink').checked) { autoBlinkEnvelope = 0; return; }
+      if (now >= nextBlinkAt && blinkStartAt < 0) blinkStartAt = now;
+      if (blinkStartAt >= 0) {
+        const t = (now - blinkStartAt) / 220; // ~220ms blink
+        if (t >= 1) {
+          blinkStartAt = -1;
+          autoBlinkEnvelope = 0;
+          nextBlinkAt = now + 2000 + Math.random() * 3000;
+        } else {
+          autoBlinkEnvelope = Math.sin(t * Math.PI); // 0 -> 1 -> 0
+        }
+      }
+    }
+
+    function updateAllFromUI() {
+      const yawDeg = parseFloat($('eyeYaw').value);
+      const pitchDeg = parseFloat($('eyePitch').value);
+      const vergDeg = parseFloat($('eyeVergence').value);
+      const pupil = parseFloat($('pupilSize').value);
+      const redness = parseFloat($('scleraRedness').value);
+      const irisHex = $('irisColor').value;
+      $('lblEyeYaw').textContent = `${yawDeg.toFixed(1)}°`;
+      $('lblEyePitch').textContent = `${pitchDeg.toFixed(1)}°`;
+      $('lblEyeVergence').textContent = `${vergDeg.toFixed(1)}°`;
+      $('lblPupil').textContent = pupil.toFixed(2);
+
+      oralEyeSystem.setEyeShader({ pupil, redness, irisHex });
+      const { upperLidFollow, lowerLidFollow } = oralEyeSystem.setGaze(yawDeg, pitchDeg, vergDeg);
+      $('valLidUp').textContent = upperLidFollow.toFixed(2);
+      $('valLidDown').textContent = lowerLidFollow.toFixed(2);
+
+      // Eyelids: manual blink slider + auto-blink envelope take the max
+      const lidOpen = parseFloat($('lidOpen').value);
+      const squint = parseFloat($('squint').value);
+      const manualBlink = parseFloat($('blinkAmt').value);
+      $('lblLidOpen').textContent = lidOpen.toFixed(2);
+      $('lblSquint').textContent = squint.toFixed(2);
+      $('lblBlink').textContent = manualBlink.toFixed(2);
+      oralEyeSystem.setLids(lidOpen, squint);
+      oralEyeSystem.setBlink(Math.max(manualBlink, autoBlinkEnvelope));
+
+      // Jaw + occlusion culling (REAL: hides groups + skips tongue compute)
+      const jawDeg = parseFloat($('jawOpen').value);
+      const tOutPreview = parseFloat($('tongueOut').value);
+      oralEyeSystem.state.occlusionEnabled = $('occlusionOn').checked;
+      oralEyeSystem.state.tonguePose.out = tOutPreview; // let gate see protrusion before culling
+      mhrJawBone.rotation.x = THREE.MathUtils.degToRad(jawDeg);
+      const isVisible = oralEyeSystem.setJaw(jawDeg);
+      $('lblJawOpen').textContent = `${jawDeg.toFixed(1)}°`;
+
+      // Dental
+      const tCount = parseInt($('teethCount').value, 10);
+      const crooked = parseFloat($('teethCrooked').value);
+      const gap = parseFloat($('teethGap').value);
+      const overbite = parseFloat($('teethOverbite').value);
+      const fangs = parseFloat($('teethFangs').value);
+      $('lblTeethCount').textContent = `${tCount} / arch`;
+      $('lblCrooked').textContent = crooked.toFixed(2);
+      $('lblGap').textContent = gap.toFixed(2);
+      $('lblOverbite').textContent = overbite.toFixed(2);
+      $('lblFangs').textContent = fangs.toFixed(2);
+      oralEyeSystem.setTeeth({ count: tCount, crooked, gap, overbite, fangs });
+
+      // Tongue (module internally no-ops skinning work when culled)
+      const tCurl = parseFloat($('tongueCurl').value);
+      const tSwing = parseFloat($('tongueSwing').value);
+      const tWidth = parseFloat($('tongueWidth').value);
+      const tRoll = parseFloat($('tongueRoll').value);
+      const tThick = parseFloat($('tongueThickness').value);
+      $('lblTongueOut').textContent = tOutPreview.toFixed(2);
+      $('lblTongueCurl').textContent = tCurl.toFixed(2);
+      $('lblTongueSwing').textContent = tSwing.toFixed(2);
+      $('lblTongueWidth').textContent = tWidth.toFixed(2);
+      $('lblTongueRoll').textContent = tRoll.toFixed(2);
+      $('lblTongueThickness').textContent = tThick.toFixed(2);
+      const tongueComputed = oralEyeSystem.setTongue({
+        out: tOutPreview, curl: tCurl, swing: tSwing, width: tWidth, roll: tRoll, thick: tThick
+      });
+
+      const gateEl = $('valGate');
+      if (!isVisible) {
+        gateEl.textContent = 'CULLED (Mouth Closed)';
+        gateEl.className = 'text-slate-500';
+      } else if (!tongueComputed) {
+        gateEl.textContent = 'SKIPPED (culled)';
+        gateEl.className = 'text-slate-500';
+      } else {
+        gateEl.textContent = 'ACTIVE';
+        gateEl.className = 'text-emerald-400';
+      }
+      tongueHelper.visible = isVisible;
+    }
+
+    document.querySelectorAll('input').forEach(el => el.addEventListener('input', updateAllFromUI));
+
+    $('resetBtn').addEventListener('click', () => {
+      $('eyeYaw').value = 0; $('eyePitch').value = 0; $('eyeVergence').value = 0;
+      $('pupilSize').value = 0.45; $('scleraRedness').value = 0.15; $('irisColor').value = '#2e77bb';
+      $('lidOpen').value = 1; $('squint').value = 0; $('blinkAmt').value = 0;
+      $('jawOpen').value = 12; $('teethCount').value = 14;
+      $('teethCrooked').value = 0; $('teethGap').value = 0; $('teethOverbite').value = 0; $('teethFangs').value = 0;
+      $('tongueOut').value = 0; $('tongueCurl').value = 0; $('tongueSwing').value = 0;
+      $('tongueWidth').value = 0; $('tongueRoll').value = 0; $('tongueThickness').value = 0;
+      updateAllFromUI();
+    });
+
+    $('camFullBtn').addEventListener('click', () => {
+      camera.position.set(0, 0.02, 0.36);
+      controls.target.set(0, -0.01, 0.02);
+    });
+    $('camEyesBtn').addEventListener('click', () => {
+      camera.position.set(0, 0.035, 0.21);
+      controls.target.set(0, 0.032, 0.05);
+    });
+    $('camMouthBtn').addEventListener('click', () => {
+      camera.position.set(0, -0.03, 0.20);
+      controls.target.set(0, -0.035, 0.05);
+    });
+    $('toggleGhostBtn').addEventListener('click', () => {
+      headProxyGroup.visible = !headProxyGroup.visible;
+    });
+    $('blinkBtn').addEventListener('click', triggerBlink);
+
+    // === 5. VISEME / FACS / GAZE PRESETS ===
+    const VISEMES = {
+      rest: { jawOpen: 5,  tongueOut: 0,    tongueCurl: 0,    tongueSwing: 0, tongueWidth: 0,    tongueRoll: 0,   tongueThickness: 0 },
+      A:    { jawOpen: 28, tongueOut: 0.15, tongueCurl: -0.3, tongueSwing: 0, tongueWidth: 0.2,  tongueRoll: 0,   tongueThickness: -0.2 },
+      E:    { jawOpen: 10, tongueOut: 0.25, tongueCurl: 0.1,  tongueSwing: 0, tongueWidth: 0.1,  tongueRoll: 0.1, tongueThickness: 0.1 },
+      I:    { jawOpen: 6,  tongueOut: 0.2,  tongueCurl: 0.15, tongueSwing: 0, tongueWidth: -0.1, tongueRoll: 0.1, tongueThickness: 0.3 },
+      O:    { jawOpen: 20, tongueOut: 0,    tongueCurl: 0,    tongueSwing: 0, tongueWidth: -0.2, tongueRoll: 0.15,tongueThickness: 0.6 },
+      U:    { jawOpen: 14, tongueOut: 0.05, tongueCurl: 0,    tongueSwing: 0, tongueWidth: -0.4, tongueRoll: 0.2, tongueThickness: 0.5 },
+      M:    { jawOpen: 0,  tongueOut: 0,    tongueCurl: 0,    tongueSwing: 0, tongueWidth: 0,    tongueRoll: 0,   tongueThickness: 0 },
+      F:    { jawOpen: 7,  tongueOut: 0.05, tongueCurl: -0.1, tongueSwing: 0, tongueWidth: 0,    tongueRoll: 0,   tongueThickness: 0 },
+      L:    { jawOpen: 10, tongueOut: 0.35, tongueCurl: 0.6,  tongueSwing: 0, tongueWidth: -0.1, tongueRoll: 0,  tongueThickness: 0.1 },
+      TH:   { jawOpen: 8,  tongueOut: 0.45, tongueCurl: 0,    tongueSwing: 0, tongueWidth: 0.3,  tongueRoll: 0,  tongueThickness: 0 },
+      S:    { jawOpen: 5,  tongueOut: 0.15, tongueCurl: 0,    tongueSwing: 0, tongueWidth: -0.1, tongueRoll: 0.7, tongueThickness: 0 },
+      K:    { jawOpen: 12, tongueOut: 0,    tongueCurl: -0.1, tongueSwing: 0, tongueWidth: 0,    tongueRoll: 0,  tongueThickness: 0.9 }
+    };
+    const FACS = {
+      neutral:  { eyeYaw: 0, eyePitch: 0, pupilSize: 0.45, lidOpen: 1,    squint: 0,    blinkAmt: 0, jawOpen: 12 },
+      happy:    { eyeYaw: 0, eyePitch: 2,  pupilSize: 0.5,  lidOpen: 0.85, squint: 0.45, blinkAmt: 0, jawOpen: 18 },
+      surprised:{ eyeYaw: 0, eyePitch: 5,  pupilSize: 0.65, lidOpen: 1,    squint: 0,    blinkAmt: 0, jawOpen: 30 },
+      angry:    { eyeYaw: 0, eyePitch: -5, pupilSize: 0.35, lidOpen: 0.65, squint: 0.6, blinkAmt: 0, jawOpen: 6 },
+      sad:      { eyeYaw: 0, eyePitch: -8, pupilSize: 0.4,  lidOpen: 0.7,  squint: 0.2,  blinkAmt: 0, jawOpen: 8 }
+    };
+    const GAZES = {
+      center: { eyeYaw: 0, eyePitch: 0 }, left: { eyeYaw: -25, eyePitch: 0 },
+      right: { eyeYaw: 25, eyePitch: 0 }, up: { eyeYaw: 0, eyePitch: 20 }, down: { eyeYaw: 0, eyePitch: -15 }
+    };
+    function setVals(map) {
+      for (const [k, v] of Object.entries(map)) { const el = $(k); if (el) el.value = v; }
+      updateAllFromUI();
+    }
+    document.querySelectorAll('#visemeRow button').forEach(b => b.addEventListener('click', () => {
+      const p = VISEMES[b.dataset.viseme]; if (p) setVals(p);
+    }));
+    document.querySelectorAll('#facsRow button').forEach(b => b.addEventListener('click', () => {
+      const p = FACS[b.dataset.facs]; if (p) setVals(p);
+    }));
+    document.querySelectorAll('#gazeRow button').forEach(b => b.addEventListener('click', () => {
+      const p = GAZES[b.dataset.gaze]; if (p) setVals(p);
+    }));
+
+    // === 6. JSON EXCHANGE ===
+    const PARAM_IDS = ['eyeYaw','eyePitch','eyeVergence','pupilSize','irisColor','scleraRedness','lidOpen','squint','blinkAmt','jawOpen','teethCount','teethCrooked','teethGap','teethOverbite','teethFangs','tongueOut','tongueCurl','tongueSwing','tongueWidth','tongueRoll','tongueThickness'];
+    function getParams() {
+      const o = { version: 2, exportedAt: new Date().toISOString() };
+      for (const id of PARAM_IDS) o[id] = $(id).type === 'checkbox' ? $(id).checked : $(id).value;
+      o.autoBlink = $('autoBlink').checked; o.occlusionOn = $('occlusionOn').checked;
+      return o;
+    }
+    function setParams(o) {
+      for (const id of PARAM_IDS) {
+        if (o[id] === undefined || !$(id)) continue;
+        $(id).value = o[id];
+      }
+      if (o.autoBlink !== undefined) $('autoBlink').checked = !!o.autoBlink;
+      if (o.occlusionOn !== undefined) $('occlusionOn').checked = !!o.occlusionOn;
+      updateAllFromUI();
+    }
+    const jsonModal = $('jsonModal');
+    $('exportJsonBtn').addEventListener('click', () => {
+      $('jsonText').value = JSON.stringify(getParams(), null, 2);
+      $('jsonStatus').textContent = 'Ready — copy, download, or paste a previous export then Apply.';
+      jsonModal.classList.remove('hidden'); jsonModal.classList.add('flex');
+    });
+    $('importJsonBtn').addEventListener('click', () => {
+      if (!$('jsonText').value.trim()) $('jsonText').value = JSON.stringify(getParams(), null, 2);
+      $('jsonStatus').textContent = 'Paste JSON above, then press Apply to viewport.';
+      jsonModal.classList.remove('hidden'); jsonModal.classList.add('flex');
+    });
+    $('closeJsonBtn').addEventListener('click', () => { jsonModal.classList.add('hidden'); jsonModal.classList.remove('flex'); });
+    $('copyJsonBtn').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText($('jsonText').value); $('jsonStatus').textContent = 'Copied to clipboard ✓'; }
+      catch { $('jsonText').select(); document.execCommand('copy'); $('jsonStatus').textContent = 'Copied (fallback) ✓'; }
+    });
+    $('downloadJsonBtn').addEventListener('click', () => {
+      const blob = new Blob([$('jsonText').value || JSON.stringify(getParams(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'mhr-eyes-oral-params.json'; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      $('jsonStatus').textContent = 'Downloaded ✓';
+    });
+    $('applyJsonBtn').addEventListener('click', () => {
+      try { setParams(JSON.parse($('jsonText').value)); $('jsonStatus').textContent = 'Applied to viewport ✓'; }
+      catch (e) { $('jsonStatus').textContent = 'Invalid JSON: ' + e.message; }
+    });
+
+    const modal = $('codeModal');
+    $('codeModalBtn').addEventListener('click', () => { modal.classList.remove('hidden'); modal.classList.add('flex'); });
+    $('closeModalBtn').addEventListener('click', () => { modal.classList.add('hidden'); modal.classList.remove('flex'); });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    });
+
+    updateAllFromUI();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      updateAutoBlink(now || performance.now());
+      // Re-apply blink envelope each frame without stomping slider text
+      const manualBlink = parseFloat($('blinkAmt').value);
+      oralEyeSystem.setBlink(Math.max(manualBlink, autoBlinkEnvelope));
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

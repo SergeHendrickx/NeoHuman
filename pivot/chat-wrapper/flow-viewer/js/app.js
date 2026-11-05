@@ -68,6 +68,7 @@ export class DynamicFlowApp {
     initUnloadGuard(this);
     this.renderCanvas();
     this.checkHealthAndRuns();
+    document.title = "NeoHuman flow · build 0348 · " + document.title;
     this.startBackendWatch();
     // Pose skeleton links arrive with the topology file; pose cards painted
     // before that show dots only and pick up links on this re-render.
@@ -873,16 +874,26 @@ export class DynamicFlowApp {
   /** Load the graph from the shared server slot. */
   async loadGraphFromDisk() {
     const name = this.sharedGraphName();
-    const res = await fetchJson(`/api/flow/saved?name=${encodeURIComponent(name)}`, { timeoutMs: 10000 });
-    if (!res.ok || !res.data) {
-      this.flowsPanelMessage("No shared graph on the server yet.", true);
-      this.showFlowToast("No shared graph on the server yet - hit Save Graph first.", null, true);
+    try {
+      const res = await fetchJson(`/api/flow/saved?name=${encodeURIComponent(name)}`, { timeoutMs: 10000 });
+      if (!res.ok || !res.data) {
+        this.flowsPanelMessage("No shared graph on the server yet.", true);
+        this.showFlowToast("No shared graph on the server yet - hit Save Graph first.", null, true);
+        return false;
+      }
+      this.sharedSavedAt = res.data.savedAt || Date.now();
+      const ok = this.restoreFlow(res.data);
+      const count = Array.isArray(res.data.nodes) ? res.data.nodes.length : 0;
+      this.flowsPanelMessage(`Loaded shared graph "${name}".`);
+      // Always give visible feedback: silence here used to look like "the button does nothing".
+      this.showFlowToast(ok
+        ? `Loaded shared graph "${name}" - ${count} nodes.`
+        : `Shared graph "${name}" had no node list (${count} nodes).`, null, !ok);
+      return true;
+    } catch (err) {
+      this.showFlowToast(`Load failed: ${err?.message || err}`, null, true);
       return false;
     }
-    this.sharedSavedAt = res.data.savedAt || Date.now();
-    this.restoreFlow(res.data);
-    this.flowsPanelMessage(`Loaded shared graph "${name}".`);
-    return true;
   }
 
   /** Small floating toast; onClick loads the shared graph. */

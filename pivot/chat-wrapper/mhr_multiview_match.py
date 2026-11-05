@@ -20,6 +20,20 @@ if str(INGEST) not in sys.path:
     sys.path.insert(0, str(INGEST))
 
 
+def _jsonable(o):
+    """Recursively convert numpy values/arrays so reports and stats always serialise."""
+    import numpy as _np
+    if isinstance(o, dict):
+        return {k: _jsonable(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_jsonable(v) for v in o]
+    if isinstance(o, _np.ndarray):
+        return o.tolist()
+    if isinstance(o, _np.generic):
+        return o.item()
+    return o
+
+
 def _head_pts(verts, lm):
     fp = lm[70:272]
     c = fp.mean(0)
@@ -121,7 +135,7 @@ def mhr_multiview_match(bgr, out: Path, rows: int | None = None, cols: int | Non
         per_panel.append({"panel": fit["index"], "beta_l2": round(float(np.linalg.norm(fit["beta"])), 3),
                           "focal_px": round(fit["focal"], 1),
                           "face_err_px": fit["face_err_px"], "ear_err_px": fit["ear_err_px"],
-                          "align_scale": round(s, 4), "align_rot_deg": round(ang, 1),
+                          "align_scale": round(float(s), 4), "align_rot_deg": round(float(ang), 1),
                           "align_rms_mm": round(rms, 2)})
 
     def _num(v):
@@ -151,9 +165,9 @@ def mhr_multiview_match(bgr, out: Path, rows: int | None = None, cols: int | Non
     palette = [(230, 50, 50), (245, 150, 30), (200, 220, 40), (60, 200, 90),
                (50, 120, 240), (150, 60, 230), (30, 200, 200), (240, 60, 200)]
     pts = np.concatenate(aligned)
-    cols = np.concatenate([np.tile(np.array(palette[i % len(palette)], np.uint8), (len(A), 1))
-                           for i, A in enumerate(aligned)])
-    trimesh.PointCloud(pts, colors=cols).export(out / "mhr_match_cloud.ply")
+    vcolors = np.concatenate([np.tile(np.array(palette[i % len(palette)], np.uint8), (len(A), 1))
+                              for i, A in enumerate(aligned)])
+    trimesh.PointCloud(pts, colors=vcolors).export(out / "mhr_match_cloud.ply")
 
     # quick ortho-ish preview: front projection, painter's sort by z
     S = 900
@@ -166,11 +180,11 @@ def mhr_multiview_match(bgr, out: Path, rows: int | None = None, cols: int | Non
         x, y = uv[k]
         y = S - 1 - y
         if 0 <= x < S and 0 <= y < S:
-            canvas[y, x] = cols[k][::-1]
+            canvas[y, x] = vcolors[k][::-1]
     cv2.imwrite(str(out / "mhr_match_cloud.png"), canvas)
 
-    report = {"grid": [rows, cols], "per_panel": per_panel, "pairs": pairs, "summary": summary,
-              "seconds": round(time.time() - t0, 1)}
+    report = _jsonable({"grid": [rows, cols], "per_panel": per_panel, "pairs": pairs,
+                        "summary": summary, "seconds": round(time.time() - t0, 1)})
     (out / "mhr_match_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     files = ["source_sheet.png", "mhr_match_report.json", "mhr_match_cloud.ply", "mhr_match_cloud.png"] + \
@@ -179,8 +193,8 @@ def mhr_multiview_match(bgr, out: Path, rows: int | None = None, cols: int | Non
                     "landmarks - cross-view median {m} mm (best {b}, worst {w}), mean landmark RMS {e} mm.").format(
         r=rows, c=cols, n=len(aligned), m=summary["median_mm"], b=summary["best_mm"],
         w=summary["worst_mm"], e=summary["mean_align_rms_mm"])
-    stats = {"grid": [rows, cols], "n_panels": len(aligned), "summary": summary,
-             "seconds": report["seconds"], "report_file": "mhr_match_report.json",
-             "cloud_file": "mhr_match_cloud.ply", "preview_file": "mhr_match_cloud.png",
-             "per_panel": per_panel}
+    stats = _jsonable({"grid": [rows, cols], "n_panels": len(aligned), "summary": summary,
+                       "seconds": report["seconds"], "report_file": "mhr_match_report.json",
+                       "cloud_file": "mhr_match_cloud.ply", "preview_file": "mhr_match_cloud.png",
+                       "per_panel": per_panel})
     return summary_text, files, stats
